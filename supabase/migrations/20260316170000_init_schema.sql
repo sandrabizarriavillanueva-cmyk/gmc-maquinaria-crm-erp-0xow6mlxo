@@ -51,7 +51,7 @@ CREATE POLICY "Auth Insert products" ON storage.objects FOR INSERT TO authentica
 CREATE POLICY "Auth Update products" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'products');
 
 -- Seed Data Inicial
-DO $
+DO $$
 DECLARE
   new_user_id uuid;
 BEGIN
@@ -80,4 +80,4 @@ BEGIN
   INSERT INTO public.collaborators (id, name, email, role)
   VALUES (new_user_id, 'Administrador GMC', 'admin@gmc.cl', 'Administrador')
   ON CONFLICT (email) DO NOTHING;
-END $;
+END $$;
