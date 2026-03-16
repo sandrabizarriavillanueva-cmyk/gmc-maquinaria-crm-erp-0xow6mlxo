@@ -115,10 +115,15 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       if (err instanceof z.ZodError) {
         return toast({
           title: 'Error de validación',
-          description: err.errors[0].message,
+          description: err?.errors?.[0]?.message || 'Revise los datos ingresados',
           variant: 'destructive',
         })
       }
+      return toast({
+        title: 'Error de validación',
+        description: 'Error inesperado al verificar el formulario.',
+        variant: 'destructive',
+      })
     }
 
     setIsLoading(true)
@@ -141,8 +146,8 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       onOpenChange(false)
     } catch (err: any) {
       toast({
-        title: 'Error de conexión',
-        description: err.message || 'No se pudo guardar el colaborador.',
+        title: 'Error al procesar la solicitud',
+        description: err?.message || 'No se pudo guardar la información del colaborador.',
         variant: 'destructive',
       })
     } finally {
