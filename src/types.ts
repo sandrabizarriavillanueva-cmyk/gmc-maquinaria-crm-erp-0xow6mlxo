@@ -12,6 +12,7 @@ export interface Product {
   price: number
   hp?: number
   bar?: number
+  specs?: string
 }
 
 export interface Client {
@@ -21,6 +22,8 @@ export interface Client {
   region: string
   phone: string
   email: string
+  contactName?: string
+  industry?: string
 }
 
 export interface Invoice {

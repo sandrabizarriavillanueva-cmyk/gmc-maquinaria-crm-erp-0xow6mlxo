@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCLP, getEquipmentBadgeClass } from '@/lib/format'
 import { InventarioAddModal } from '@/components/InventarioAddModal'
+import { InventarioImportModal } from '@/components/InventarioImportModal'
 import { EquipmentStatus } from '@/types'
 import { Search } from 'lucide-react'
 
@@ -36,6 +37,8 @@ export default function Inventario() {
     return matchesSearch && matchesCat
   })
 
+  const availableCategories = Array.from(new Set(products.map((p) => p.category))).sort()
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -43,7 +46,10 @@ export default function Inventario() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Gestor de Stock</h1>
           <p className="text-slate-500">Administra los equipos y repuestos disponibles.</p>
         </div>
-        <InventarioAddModal />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <InventarioImportModal />
+          <InventarioAddModal />
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -62,9 +68,11 @@ export default function Inventario() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Todas">Todas las categorías</SelectItem>
-            <SelectItem value="Compresor">Compresor</SelectItem>
-            <SelectItem value="Secador">Secador</SelectItem>
-            <SelectItem value="Chiller">Chiller</SelectItem>
+            {availableCategories.map((cat) => (
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

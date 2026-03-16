@@ -19118,6 +19118,38 @@ var DollarSign = createLucideIcon("dollar-sign", [["line", {
 	d: "M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
 	key: "1b0p4s"
 }]]);
+var Download = createLucideIcon("download", [
+	["path", {
+		d: "M12 15V3",
+		key: "m9g1x1"
+	}],
+	["path", {
+		d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+		key: "ih7n3h"
+	}],
+	["path", {
+		d: "m7 10 5 5 5-5",
+		key: "brsn70"
+	}]
+]);
+var FileUp = createLucideIcon("file-up", [
+	["path", {
+		d: "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z",
+		key: "1oefj6"
+	}],
+	["path", {
+		d: "M14 2v5a1 1 0 0 0 1 1h5",
+		key: "wfsgrz"
+	}],
+	["path", {
+		d: "M12 12v6",
+		key: "3ahymv"
+	}],
+	["path", {
+		d: "m15 15-3-3-3 3",
+		key: "15xj92"
+	}]
+]);
 var LayoutDashboard = createLucideIcon("layout-dashboard", [
 	["rect", {
 		width: "7",
@@ -19305,6 +19337,20 @@ var TriangleAlert = createLucideIcon("triangle-alert", [
 	["path", {
 		d: "M12 17h.01",
 		key: "p32p05"
+	}]
+]);
+var Upload = createLucideIcon("upload", [
+	["path", {
+		d: "M12 3v12",
+		key: "1x0j5s"
+	}],
+	["path", {
+		d: "m17 8-5-5-5 5",
+		key: "7q97r8"
+	}],
+	["path", {
+		d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+		key: "ih7n3h"
 	}]
 ]);
 var Users = createLucideIcon("users", [
@@ -28764,6 +28810,216 @@ function InventarioAddModal() {
 	});
 }
 //#endregion
+//#region src/lib/csv.ts
+function parseCSV(text) {
+	const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+	if (lines.length === 0) return [];
+	const delimiter = lines[0].includes(";") ? ";" : ",";
+	const regex = new RegExp(`${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
+	const headers = lines[0].split(regex).map((h) => h.trim().replace(/^"|"$/g, ""));
+	const result = [];
+	for (let i = 1; i < lines.length; i++) {
+		const values = lines[i].split(regex).map((v) => v.trim().replace(/^"|"$/g, ""));
+		if (values.length >= 1 && values.some((v) => v !== "")) {
+			const obj = {};
+			headers.forEach((header, index) => {
+				obj[header] = values[index] || "";
+			});
+			result.push(obj);
+		}
+	}
+	return result;
+}
+//#endregion
+//#region src/components/InventarioImportModal.tsx
+function InventarioImportModal() {
+	const { addProduct } = useStore();
+	const [open, setOpen] = (0, import_react.useState)(false);
+	const [file, setFile] = (0, import_react.useState)(null);
+	const downloadTemplate = () => {
+		const csvContent = `${[
+			"SKU_Código",
+			"Marca",
+			"Nombre del Producto",
+			"Categoría",
+			"Especificaciones Técnicas",
+			"Precio Unitario",
+			"Stock Actual",
+			"Stock Mínimo",
+			"Estado del Equipo"
+		].join(";")}\n${[
+			"COMP-001",
+			"Metalplan",
+			"Compresor de Aire",
+			"Compresor",
+			"10HP 10 Bar",
+			"1500000",
+			"5",
+			"2",
+			"Disponible"
+		].join(";")}`;
+		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+		const link = document.createElement("a");
+		link.href = URL.createObjectURL(blob);
+		link.download = "inventario_template.csv";
+		link.click();
+	};
+	const handleImport = async () => {
+		if (!file) return;
+		const data = parseCSV(await file.text());
+		let imported = 0;
+		let errors = 0;
+		data.forEach((row) => {
+			const sku = row["SKU_Código"] || row["SKU_Codigo"] || row["SKU"];
+			const brand = row["Marca"];
+			const name = row["Nombre del Producto"] || row["Nombre"];
+			const rawCategory = row["Categoría"] || row["Categoria"];
+			const specs = row["Especificaciones Técnicas"] || row["Especificaciones Tecnicas"];
+			const rawPrice = row["Precio Unitario"];
+			const rawStock = row["Stock Actual"];
+			const rawMinStock = row["Stock Mínimo"] || row["Stock Minimo"];
+			const rawStatus = row["Estado del Equipo"];
+			if (!sku || !name || !brand || !rawPrice) {
+				errors++;
+				return;
+			}
+			const price = parseInt(rawPrice.replace(/[^0-9]/g, ""), 10) || 0;
+			const stock = parseInt(rawStock, 10) || 0;
+			const minStock = parseInt(rawMinStock, 10) || 0;
+			let status = "Disponible";
+			if (rawStatus === "Inactivo") status = "Inactivo";
+			if (rawStatus === "En Mantención" || rawStatus === "En Mantencion") status = "En Mantención";
+			if (rawStatus?.includes("Arrendado") || rawStatus?.includes("Locación")) status = "Arrendado";
+			const category = [
+				"Compresor",
+				"Secador",
+				"Purgador",
+				"Chiller",
+				"Repuesto",
+				"Consumible"
+			].includes(rawCategory) ? rawCategory : "Repuesto";
+			addProduct({
+				id: Math.random().toString(),
+				sku,
+				name,
+				brand,
+				category,
+				price,
+				stock,
+				minStock,
+				status,
+				specs
+			});
+			imported++;
+		});
+		setOpen(false);
+		setFile(null);
+		if (imported > 0) toast$1({
+			title: "Importación exitosa",
+			description: `${imported} productos importados correctamente.`
+		});
+		if (errors > 0) toast$1({
+			title: "Errores en importación",
+			description: `${errors} filas omitidas por datos obligatorios faltantes.`,
+			variant: "destructive"
+		});
+	};
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Dialog, {
+		"data-uid": "src/components/InventarioImportModal.tsx:130:5",
+		"data-prohibitions": "[]",
+		open,
+		onOpenChange: setOpen,
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogTrigger, {
+			"data-uid": "src/components/InventarioImportModal.tsx:131:7",
+			"data-prohibitions": "[]",
+			asChild: true,
+			children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+				"data-uid": "src/components/InventarioImportModal.tsx:132:9",
+				"data-prohibitions": "[]",
+				variant: "outline",
+				className: "h-11 gap-2 border-slate-300",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Upload, {
+					"data-uid": "src/components/InventarioImportModal.tsx:133:11",
+					"data-prohibitions": "[editContent]",
+					className: "w-4 h-4"
+				}), " Importar Inventario"]
+			})
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(DialogContent, {
+			"data-uid": "src/components/InventarioImportModal.tsx:136:7",
+			"data-prohibitions": "[]",
+			className: "sm:max-w-md",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogHeader, {
+					"data-uid": "src/components/InventarioImportModal.tsx:137:9",
+					"data-prohibitions": "[]",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogTitle, {
+						"data-uid": "src/components/InventarioImportModal.tsx:138:11",
+						"data-prohibitions": "[]",
+						className: "text-xl",
+						children: "Importar Inventario desde CSV"
+					})
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					"data-uid": "src/components/InventarioImportModal.tsx:140:9",
+					"data-prohibitions": "[]",
+					className: "grid gap-6 py-4",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						"data-uid": "src/components/InventarioImportModal.tsx:141:11",
+						"data-prohibitions": "[]",
+						className: "space-y-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							"data-uid": "src/components/InventarioImportModal.tsx:142:13",
+							"data-prohibitions": "[]",
+							className: "text-sm text-slate-500",
+							children: "Descarga la plantilla para asegurarte de que tu archivo tiene el formato correcto."
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+							"data-uid": "src/components/InventarioImportModal.tsx:145:13",
+							"data-prohibitions": "[]",
+							variant: "secondary",
+							onClick: downloadTemplate,
+							className: "w-full gap-2",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, {
+								"data-uid": "src/components/InventarioImportModal.tsx:146:15",
+								"data-prohibitions": "[editContent]",
+								className: "w-4 h-4"
+							}), " Descargar Plantilla"]
+						})]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						"data-uid": "src/components/InventarioImportModal.tsx:149:11",
+						"data-prohibitions": "[]",
+						className: "space-y-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							"data-uid": "src/components/InventarioImportModal.tsx:150:13",
+							"data-prohibitions": "[]",
+							className: "text-sm font-medium",
+							children: "Subir Archivo CSV"
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+							"data-uid": "src/components/InventarioImportModal.tsx:151:13",
+							"data-prohibitions": "[editContent]",
+							type: "file",
+							accept: ".csv",
+							onChange: (e) => setFile(e.target.files?.[0] || null),
+							className: "cursor-pointer h-11"
+						})]
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+					"data-uid": "src/components/InventarioImportModal.tsx:159:9",
+					"data-prohibitions": "[]",
+					onClick: handleImport,
+					disabled: !file,
+					className: "w-full h-11 bg-slate-800 hover:bg-slate-700 gap-2",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileUp, {
+						"data-uid": "src/components/InventarioImportModal.tsx:164:11",
+						"data-prohibitions": "[editContent]",
+						className: "w-4 h-4"
+					}), " Procesar Importación"]
+				})
+			]
+		})]
+	});
+}
+//#endregion
 //#region src/pages/Inventario.tsx
 function Inventario() {
 	const { products, updateProductStock, updateProductStatus } = useStore();
@@ -28774,48 +29030,57 @@ function Inventario() {
 		const matchesCat = category === "Todas" || p.category === category;
 		return matchesSearch && matchesCat;
 	});
+	const availableCategories = Array.from(new Set(products.map((p) => p.category))).sort();
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-		"data-uid": "src/pages/Inventario.tsx:40:5",
+		"data-uid": "src/pages/Inventario.tsx:43:5",
 		"data-prohibitions": "[editContent]",
 		className: "space-y-6",
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				"data-uid": "src/pages/Inventario.tsx:41:7",
+				"data-uid": "src/pages/Inventario.tsx:44:7",
 				"data-prohibitions": "[]",
 				className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-4",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					"data-uid": "src/pages/Inventario.tsx:42:9",
+					"data-uid": "src/pages/Inventario.tsx:45:9",
 					"data-prohibitions": "[]",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
-						"data-uid": "src/pages/Inventario.tsx:43:11",
+						"data-uid": "src/pages/Inventario.tsx:46:11",
 						"data-prohibitions": "[]",
 						className: "text-2xl font-bold tracking-tight text-slate-800",
 						children: "Gestor de Stock"
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						"data-uid": "src/pages/Inventario.tsx:44:11",
+						"data-uid": "src/pages/Inventario.tsx:47:11",
 						"data-prohibitions": "[]",
 						className: "text-slate-500",
 						children: "Administra los equipos y repuestos disponibles."
 					})]
-				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(InventarioAddModal, {
-					"data-uid": "src/pages/Inventario.tsx:46:9",
-					"data-prohibitions": "[editContent]"
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					"data-uid": "src/pages/Inventario.tsx:49:9",
+					"data-prohibitions": "[]",
+					className: "flex items-center gap-2 w-full md:w-auto",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(InventarioImportModal, {
+						"data-uid": "src/pages/Inventario.tsx:50:11",
+						"data-prohibitions": "[editContent]"
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(InventarioAddModal, {
+						"data-uid": "src/pages/Inventario.tsx:51:11",
+						"data-prohibitions": "[editContent]"
+					})]
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				"data-uid": "src/pages/Inventario.tsx:49:7",
-				"data-prohibitions": "[]",
+				"data-uid": "src/pages/Inventario.tsx:55:7",
+				"data-prohibitions": "[editContent]",
 				className: "flex flex-col md:flex-row gap-4",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					"data-uid": "src/pages/Inventario.tsx:50:9",
+					"data-uid": "src/pages/Inventario.tsx:56:9",
 					"data-prohibitions": "[]",
 					className: "relative flex-1",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Search, {
-						"data-uid": "src/pages/Inventario.tsx:51:11",
+						"data-uid": "src/pages/Inventario.tsx:57:11",
 						"data-prohibitions": "[editContent]",
 						className: "absolute left-3 top-3 h-5 w-5 text-muted-foreground"
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-						"data-uid": "src/pages/Inventario.tsx:52:11",
+						"data-uid": "src/pages/Inventario.tsx:58:11",
 						"data-prohibitions": "[editContent]",
 						placeholder: "Buscar por SKU o descripción...",
 						value: search,
@@ -28823,93 +29088,78 @@ function Inventario() {
 						className: "pl-10 h-11 text-base"
 					})]
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Select, {
-					"data-uid": "src/pages/Inventario.tsx:59:9",
-					"data-prohibitions": "[]",
+					"data-uid": "src/pages/Inventario.tsx:65:9",
+					"data-prohibitions": "[editContent]",
 					value: category,
 					onValueChange: setCategory,
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectTrigger, {
-						"data-uid": "src/pages/Inventario.tsx:60:11",
+						"data-uid": "src/pages/Inventario.tsx:66:11",
 						"data-prohibitions": "[]",
 						className: "w-full md:w-56 h-11",
 						children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectValue, {
-							"data-uid": "src/pages/Inventario.tsx:61:13",
+							"data-uid": "src/pages/Inventario.tsx:67:13",
 							"data-prohibitions": "[editContent]",
 							placeholder: "Categoría"
 						})
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SelectContent, {
-						"data-uid": "src/pages/Inventario.tsx:63:11",
-						"data-prohibitions": "[]",
-						children: [
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-								"data-uid": "src/pages/Inventario.tsx:64:13",
-								"data-prohibitions": "[]",
-								value: "Todas",
-								children: "Todas las categorías"
-							}),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-								"data-uid": "src/pages/Inventario.tsx:65:13",
-								"data-prohibitions": "[]",
-								value: "Compresor",
-								children: "Compresor"
-							}),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-								"data-uid": "src/pages/Inventario.tsx:66:13",
-								"data-prohibitions": "[]",
-								value: "Secador",
-								children: "Secador"
-							}),
-							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-								"data-uid": "src/pages/Inventario.tsx:67:13",
-								"data-prohibitions": "[]",
-								value: "Chiller",
-								children: "Chiller"
-							})
-						]
+						"data-uid": "src/pages/Inventario.tsx:69:11",
+						"data-prohibitions": "[editContent]",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
+							"data-uid": "src/pages/Inventario.tsx:70:13",
+							"data-prohibitions": "[]",
+							value: "Todas",
+							children: "Todas las categorías"
+						}), availableCategories.map((cat) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
+							"data-uid": "src/pages/Inventario.tsx:72:15",
+							"data-prohibitions": "[editContent]",
+							value: cat,
+							children: cat
+						}, cat))]
 					})]
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-				"data-uid": "src/pages/Inventario.tsx:73:7",
+				"data-uid": "src/pages/Inventario.tsx:81:7",
 				"data-prohibitions": "[editContent]",
 				className: "hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Table, {
-					"data-uid": "src/pages/Inventario.tsx:74:9",
+					"data-uid": "src/pages/Inventario.tsx:82:9",
 					"data-prohibitions": "[editContent]",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHeader, {
-						"data-uid": "src/pages/Inventario.tsx:75:11",
+						"data-uid": "src/pages/Inventario.tsx:83:11",
 						"data-prohibitions": "[]",
 						className: "bg-slate-50",
 						children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableRow, {
-							"data-uid": "src/pages/Inventario.tsx:76:13",
+							"data-uid": "src/pages/Inventario.tsx:84:13",
 							"data-prohibitions": "[]",
 							children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:77:15",
+									"data-uid": "src/pages/Inventario.tsx:85:15",
 									"data-prohibitions": "[]",
 									children: "SKU"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:78:15",
+									"data-uid": "src/pages/Inventario.tsx:86:15",
 									"data-prohibitions": "[]",
 									children: "Descripción"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:79:15",
+									"data-uid": "src/pages/Inventario.tsx:87:15",
 									"data-prohibitions": "[]",
 									children: "Marca"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:80:15",
+									"data-uid": "src/pages/Inventario.tsx:88:15",
 									"data-prohibitions": "[]",
 									children: "Stock Actual"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:81:15",
+									"data-uid": "src/pages/Inventario.tsx:89:15",
 									"data-prohibitions": "[]",
 									children: "Estado Equipo"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Inventario.tsx:82:15",
+									"data-uid": "src/pages/Inventario.tsx:90:15",
 									"data-prohibitions": "[]",
 									className: "text-right",
 									children: "Precio Neto"
@@ -28917,33 +29167,33 @@ function Inventario() {
 							]
 						})
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableBody, {
-						"data-uid": "src/pages/Inventario.tsx:85:11",
+						"data-uid": "src/pages/Inventario.tsx:93:11",
 						"data-prohibitions": "[editContent]",
 						children: [filtered.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableRow, {
-							"data-uid": "src/pages/Inventario.tsx:87:15",
+							"data-uid": "src/pages/Inventario.tsx:95:15",
 							"data-prohibitions": "[editContent]",
 							children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:88:17",
+									"data-uid": "src/pages/Inventario.tsx:96:17",
 									"data-prohibitions": "[editContent]",
 									className: "font-semibold",
 									children: p.sku
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:89:17",
+									"data-uid": "src/pages/Inventario.tsx:97:17",
 									"data-prohibitions": "[editContent]",
 									children: p.name
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:90:17",
+									"data-uid": "src/pages/Inventario.tsx:98:17",
 									"data-prohibitions": "[editContent]",
 									children: p.brand
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:91:17",
+									"data-uid": "src/pages/Inventario.tsx:99:17",
 									"data-prohibitions": "[]",
 									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-										"data-uid": "src/pages/Inventario.tsx:92:19",
+										"data-uid": "src/pages/Inventario.tsx:100:19",
 										"data-prohibitions": "[editContent]",
 										type: "number",
 										defaultValue: p.stock,
@@ -28952,55 +29202,55 @@ function Inventario() {
 									})
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:99:17",
+									"data-uid": "src/pages/Inventario.tsx:107:17",
 									"data-prohibitions": "[editContent]",
 									children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										"data-uid": "src/pages/Inventario.tsx:100:19",
+										"data-uid": "src/pages/Inventario.tsx:108:19",
 										"data-prohibitions": "[editContent]",
 										className: "flex items-center gap-2",
 										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Badge, {
-											"data-uid": "src/pages/Inventario.tsx:101:21",
+											"data-uid": "src/pages/Inventario.tsx:109:21",
 											"data-prohibitions": "[editContent]",
 											variant: "outline",
 											className: getEquipmentBadgeClass(p.status),
 											children: p.status
 										}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Select, {
-											"data-uid": "src/pages/Inventario.tsx:104:21",
+											"data-uid": "src/pages/Inventario.tsx:112:21",
 											"data-prohibitions": "[]",
 											defaultValue: p.status,
 											onValueChange: (v) => updateProductStatus(p.id, v),
 											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectTrigger, {
-												"data-uid": "src/pages/Inventario.tsx:108:23",
+												"data-uid": "src/pages/Inventario.tsx:116:23",
 												"data-prohibitions": "[]",
 												className: "w-8 h-8 p-0 border-0 shadow-none",
 												children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectValue, {
-													"data-uid": "src/pages/Inventario.tsx:109:25",
+													"data-uid": "src/pages/Inventario.tsx:117:25",
 													"data-prohibitions": "[editContent]"
 												})
 											}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(SelectContent, {
-												"data-uid": "src/pages/Inventario.tsx:111:23",
+												"data-uid": "src/pages/Inventario.tsx:119:23",
 												"data-prohibitions": "[]",
 												children: [
 													/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-														"data-uid": "src/pages/Inventario.tsx:112:25",
+														"data-uid": "src/pages/Inventario.tsx:120:25",
 														"data-prohibitions": "[]",
 														value: "Disponible",
 														children: "Disponible"
 													}),
 													/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-														"data-uid": "src/pages/Inventario.tsx:113:25",
+														"data-uid": "src/pages/Inventario.tsx:121:25",
 														"data-prohibitions": "[]",
 														value: "Arrendado",
 														children: "Arrendado"
 													}),
 													/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-														"data-uid": "src/pages/Inventario.tsx:114:25",
+														"data-uid": "src/pages/Inventario.tsx:122:25",
 														"data-prohibitions": "[]",
 														value: "En Mantención",
 														children: "En Mantención"
 													}),
 													/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SelectItem, {
-														"data-uid": "src/pages/Inventario.tsx:115:25",
+														"data-uid": "src/pages/Inventario.tsx:123:25",
 														"data-prohibitions": "[]",
 														value: "Inactivo",
 														children: "Inactivo"
@@ -29011,17 +29261,17 @@ function Inventario() {
 									})
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Inventario.tsx:120:17",
+									"data-uid": "src/pages/Inventario.tsx:128:17",
 									"data-prohibitions": "[editContent]",
 									className: "text-right font-medium",
 									children: formatCLP(p.price)
 								})
 							]
 						}, p.id)), filtered.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableRow, {
-							"data-uid": "src/pages/Inventario.tsx:124:15",
+							"data-uid": "src/pages/Inventario.tsx:132:15",
 							"data-prohibitions": "[]",
 							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-								"data-uid": "src/pages/Inventario.tsx:125:17",
+								"data-uid": "src/pages/Inventario.tsx:133:17",
 								"data-prohibitions": "[]",
 								colSpan: 6,
 								className: "text-center py-8 text-slate-500",
@@ -29032,29 +29282,29 @@ function Inventario() {
 				})
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-				"data-uid": "src/pages/Inventario.tsx:135:7",
+				"data-uid": "src/pages/Inventario.tsx:143:7",
 				"data-prohibitions": "[editContent]",
 				className: "grid grid-cols-1 gap-4 md:hidden",
 				children: filtered.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Card, {
-					"data-uid": "src/pages/Inventario.tsx:137:11",
+					"data-uid": "src/pages/Inventario.tsx:145:11",
 					"data-prohibitions": "[editContent]",
 					className: "shadow-subtle border-slate-200",
 					children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardContent, {
-						"data-uid": "src/pages/Inventario.tsx:138:13",
+						"data-uid": "src/pages/Inventario.tsx:146:13",
 						"data-prohibitions": "[editContent]",
 						className: "p-4 flex flex-col gap-3",
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Inventario.tsx:139:15",
+								"data-uid": "src/pages/Inventario.tsx:147:15",
 								"data-prohibitions": "[editContent]",
 								className: "flex justify-between items-start",
 								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-									"data-uid": "src/pages/Inventario.tsx:140:17",
+									"data-uid": "src/pages/Inventario.tsx:148:17",
 									"data-prohibitions": "[editContent]",
 									className: "font-bold text-lg leading-tight",
 									children: p.name
 								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Badge, {
-									"data-uid": "src/pages/Inventario.tsx:141:17",
+									"data-uid": "src/pages/Inventario.tsx:149:17",
 									"data-prohibitions": "[editContent]",
 									variant: "outline",
 									className: getEquipmentBadgeClass(p.status),
@@ -29062,7 +29312,7 @@ function Inventario() {
 								})]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Inventario.tsx:145:15",
+								"data-uid": "src/pages/Inventario.tsx:153:15",
 								"data-prohibitions": "[editContent]",
 								className: "text-sm text-slate-500 font-medium",
 								children: [
@@ -29073,16 +29323,16 @@ function Inventario() {
 								]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Inventario.tsx:148:15",
+								"data-uid": "src/pages/Inventario.tsx:156:15",
 								"data-prohibitions": "[]",
 								className: "flex justify-between items-center bg-slate-50 p-3 rounded-lg mt-2",
 								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-									"data-uid": "src/pages/Inventario.tsx:149:17",
+									"data-uid": "src/pages/Inventario.tsx:157:17",
 									"data-prohibitions": "[]",
 									className: "font-semibold text-slate-700",
 									children: "Stock Físico:"
 								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-									"data-uid": "src/pages/Inventario.tsx:150:17",
+									"data-uid": "src/pages/Inventario.tsx:158:17",
 									"data-prohibitions": "[editContent]",
 									type: "number",
 									defaultValue: p.stock,
@@ -29295,49 +29545,223 @@ function ClienteAddModal() {
 	});
 }
 //#endregion
+//#region src/components/ClienteImportModal.tsx
+function ClienteImportModal() {
+	const { addClient } = useStore();
+	const [open, setOpen] = (0, import_react.useState)(false);
+	const [file, setFile] = (0, import_react.useState)(null);
+	const downloadTemplate = () => {
+		const csvContent = `${[
+			"Razón Social",
+			"RUT",
+			"Ciudad/Región",
+			"Nombre Contacto",
+			"Email Contacto",
+			"Teléfono Contacto",
+			"Segmento de Industria"
+		].join(";")}\n${[
+			"Ejemplo S.A.",
+			"76.123.456-7",
+			"Antofagasta",
+			"Juan Pérez",
+			"jperez@ejemplo.cl",
+			"+56912345678",
+			"Minería"
+		].join(";")}`;
+		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+		const link = document.createElement("a");
+		link.href = URL.createObjectURL(blob);
+		link.download = "clientes_template.csv";
+		link.click();
+	};
+	const handleImport = async () => {
+		if (!file) return;
+		const data = parseCSV(await file.text());
+		let imported = 0;
+		let errors = 0;
+		data.forEach((row) => {
+			const name = row["Razón Social"] || row["Razon Social"];
+			const rut = row["RUT"];
+			const region = row["Ciudad/Región"] || row["Ciudad"] || row["Region"] || row["Ciudad / Región"];
+			const contactName = row["Nombre Contacto"];
+			const email = row["Email Contacto"];
+			const phone = row["Teléfono Contacto"] || row["Telefono Contacto"];
+			const industry = row["Segmento de Industria"];
+			if (!name || !rut || !validateRUT(rut)) {
+				errors++;
+				return;
+			}
+			addClient({
+				id: Math.random().toString(),
+				name,
+				rut: formatRUT(rut),
+				region: region || "",
+				contactName: contactName || "",
+				email: email || "",
+				phone: phone || "",
+				industry: industry || ""
+			});
+			imported++;
+		});
+		setOpen(false);
+		setFile(null);
+		if (imported > 0) toast$1({
+			title: "Importación exitosa",
+			description: `${imported} clientes importados correctamente.`
+		});
+		if (errors > 0) toast$1({
+			title: "Errores en importación",
+			description: `${errors} filas omitidas por datos inválidos o RUT incorrecto.`,
+			variant: "destructive"
+		});
+	};
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Dialog, {
+		"data-uid": "src/components/ClienteImportModal.tsx:104:5",
+		"data-prohibitions": "[]",
+		open,
+		onOpenChange: setOpen,
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogTrigger, {
+			"data-uid": "src/components/ClienteImportModal.tsx:105:7",
+			"data-prohibitions": "[]",
+			asChild: true,
+			children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+				"data-uid": "src/components/ClienteImportModal.tsx:106:9",
+				"data-prohibitions": "[]",
+				variant: "outline",
+				className: "h-11 gap-2 border-slate-300",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Upload, {
+					"data-uid": "src/components/ClienteImportModal.tsx:107:11",
+					"data-prohibitions": "[editContent]",
+					className: "w-4 h-4"
+				}), " Importar Clientes"]
+			})
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(DialogContent, {
+			"data-uid": "src/components/ClienteImportModal.tsx:110:7",
+			"data-prohibitions": "[]",
+			className: "sm:max-w-md",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogHeader, {
+					"data-uid": "src/components/ClienteImportModal.tsx:111:9",
+					"data-prohibitions": "[]",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DialogTitle, {
+						"data-uid": "src/components/ClienteImportModal.tsx:112:11",
+						"data-prohibitions": "[]",
+						className: "text-xl",
+						children: "Importar Clientes desde CSV"
+					})
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					"data-uid": "src/components/ClienteImportModal.tsx:114:9",
+					"data-prohibitions": "[]",
+					className: "grid gap-6 py-4",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						"data-uid": "src/components/ClienteImportModal.tsx:115:11",
+						"data-prohibitions": "[]",
+						className: "space-y-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							"data-uid": "src/components/ClienteImportModal.tsx:116:13",
+							"data-prohibitions": "[]",
+							className: "text-sm text-slate-500",
+							children: "Descarga la plantilla para asegurarte de que tu archivo tiene el formato correcto."
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+							"data-uid": "src/components/ClienteImportModal.tsx:119:13",
+							"data-prohibitions": "[]",
+							variant: "secondary",
+							onClick: downloadTemplate,
+							className: "w-full gap-2",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, {
+								"data-uid": "src/components/ClienteImportModal.tsx:120:15",
+								"data-prohibitions": "[editContent]",
+								className: "w-4 h-4"
+							}), " Descargar Plantilla"]
+						})]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						"data-uid": "src/components/ClienteImportModal.tsx:123:11",
+						"data-prohibitions": "[]",
+						className: "space-y-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							"data-uid": "src/components/ClienteImportModal.tsx:124:13",
+							"data-prohibitions": "[]",
+							className: "text-sm font-medium",
+							children: "Subir Archivo CSV"
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+							"data-uid": "src/components/ClienteImportModal.tsx:125:13",
+							"data-prohibitions": "[editContent]",
+							type: "file",
+							accept: ".csv",
+							onChange: (e) => setFile(e.target.files?.[0] || null),
+							className: "cursor-pointer h-11"
+						})]
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+					"data-uid": "src/components/ClienteImportModal.tsx:133:9",
+					"data-prohibitions": "[]",
+					onClick: handleImport,
+					disabled: !file,
+					className: "w-full h-11 bg-slate-800 hover:bg-slate-700 gap-2",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileUp, {
+						"data-uid": "src/components/ClienteImportModal.tsx:138:11",
+						"data-prohibitions": "[editContent]",
+						className: "w-4 h-4"
+					}), " Procesar Importación"]
+				})
+			]
+		})]
+	});
+}
+//#endregion
 //#region src/pages/Clientes.tsx
 function Clientes() {
 	const { clients } = useStore();
 	const [search, setSearch] = (0, import_react.useState)("");
 	const filtered = clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.rut.includes(search));
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-		"data-uid": "src/pages/Clientes.tsx:27:5",
+		"data-uid": "src/pages/Clientes.tsx:28:5",
 		"data-prohibitions": "[editContent]",
 		className: "space-y-6",
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				"data-uid": "src/pages/Clientes.tsx:28:7",
+				"data-uid": "src/pages/Clientes.tsx:29:7",
 				"data-prohibitions": "[]",
 				className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-4",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					"data-uid": "src/pages/Clientes.tsx:29:9",
+					"data-uid": "src/pages/Clientes.tsx:30:9",
 					"data-prohibitions": "[]",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
-						"data-uid": "src/pages/Clientes.tsx:30:11",
+						"data-uid": "src/pages/Clientes.tsx:31:11",
 						"data-prohibitions": "[]",
 						className: "text-2xl font-bold tracking-tight text-slate-800",
 						children: "Directorio de Clientes"
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						"data-uid": "src/pages/Clientes.tsx:33:11",
+						"data-uid": "src/pages/Clientes.tsx:34:11",
 						"data-prohibitions": "[]",
 						className: "text-slate-500",
 						children: "Visualiza y gestiona la cartera de clientes corporativos."
 					})]
-				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ClienteAddModal, {
-					"data-uid": "src/pages/Clientes.tsx:37:9",
-					"data-prohibitions": "[editContent]"
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					"data-uid": "src/pages/Clientes.tsx:38:9",
+					"data-prohibitions": "[]",
+					className: "flex items-center gap-2 w-full md:w-auto",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ClienteImportModal, {
+						"data-uid": "src/pages/Clientes.tsx:39:11",
+						"data-prohibitions": "[editContent]"
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ClienteAddModal, {
+						"data-uid": "src/pages/Clientes.tsx:40:11",
+						"data-prohibitions": "[editContent]"
+					})]
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-				"data-uid": "src/pages/Clientes.tsx:40:7",
+				"data-uid": "src/pages/Clientes.tsx:44:7",
 				"data-prohibitions": "[]",
 				className: "relative max-w-md",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Search, {
-					"data-uid": "src/pages/Clientes.tsx:41:9",
+					"data-uid": "src/pages/Clientes.tsx:45:9",
 					"data-prohibitions": "[editContent]",
 					className: "absolute left-3 top-3 h-5 w-5 text-muted-foreground"
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-					"data-uid": "src/pages/Clientes.tsx:42:9",
+					"data-uid": "src/pages/Clientes.tsx:46:9",
 					"data-prohibitions": "[editContent]",
 					placeholder: "Buscar por Razón Social o RUT...",
 					value: search,
@@ -29346,77 +29770,77 @@ function Clientes() {
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-				"data-uid": "src/pages/Clientes.tsx:51:7",
+				"data-uid": "src/pages/Clientes.tsx:55:7",
 				"data-prohibitions": "[editContent]",
 				className: "hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Table, {
-					"data-uid": "src/pages/Clientes.tsx:52:9",
+					"data-uid": "src/pages/Clientes.tsx:56:9",
 					"data-prohibitions": "[editContent]",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHeader, {
-						"data-uid": "src/pages/Clientes.tsx:53:11",
+						"data-uid": "src/pages/Clientes.tsx:57:11",
 						"data-prohibitions": "[]",
 						className: "bg-slate-50",
 						children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableRow, {
-							"data-uid": "src/pages/Clientes.tsx:54:13",
+							"data-uid": "src/pages/Clientes.tsx:58:13",
 							"data-prohibitions": "[]",
 							children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Clientes.tsx:55:15",
+									"data-uid": "src/pages/Clientes.tsx:59:15",
 									"data-prohibitions": "[]",
 									children: "RUT"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Clientes.tsx:56:15",
+									"data-uid": "src/pages/Clientes.tsx:60:15",
 									"data-prohibitions": "[]",
 									children: "Razón Social"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Clientes.tsx:57:15",
+									"data-uid": "src/pages/Clientes.tsx:61:15",
 									"data-prohibitions": "[]",
 									children: "Región"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Clientes.tsx:58:15",
+									"data-uid": "src/pages/Clientes.tsx:62:15",
 									"data-prohibitions": "[]",
 									children: "Teléfono"
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableHead, {
-									"data-uid": "src/pages/Clientes.tsx:59:15",
+									"data-uid": "src/pages/Clientes.tsx:63:15",
 									"data-prohibitions": "[]",
 									className: "text-right",
 									children: "Acciones"
 								})
 							]
 						})
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableBody, {
-						"data-uid": "src/pages/Clientes.tsx:62:11",
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableBody, {
+						"data-uid": "src/pages/Clientes.tsx:66:11",
 						"data-prohibitions": "[editContent]",
-						children: filtered.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableRow, {
-							"data-uid": "src/pages/Clientes.tsx:64:15",
+						children: [filtered.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TableRow, {
+							"data-uid": "src/pages/Clientes.tsx:68:15",
 							"data-prohibitions": "[editContent]",
 							children: [
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Clientes.tsx:65:17",
+									"data-uid": "src/pages/Clientes.tsx:69:17",
 									"data-prohibitions": "[editContent]",
 									className: "font-medium whitespace-nowrap",
 									children: c.rut
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Clientes.tsx:66:17",
+									"data-uid": "src/pages/Clientes.tsx:70:17",
 									"data-prohibitions": "[editContent]",
 									className: "font-semibold",
 									children: c.name
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Clientes.tsx:67:17",
+									"data-uid": "src/pages/Clientes.tsx:71:17",
 									"data-prohibitions": "[editContent]",
 									children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										"data-uid": "src/pages/Clientes.tsx:68:19",
+										"data-uid": "src/pages/Clientes.tsx:72:19",
 										"data-prohibitions": "[editContent]",
 										className: "flex items-center gap-1 text-slate-500",
 										children: [
 											/* @__PURE__ */ (0, import_jsx_runtime.jsx)(MapPin, {
-												"data-uid": "src/pages/Clientes.tsx:69:21",
+												"data-uid": "src/pages/Clientes.tsx:73:21",
 												"data-prohibitions": "[editContent]",
 												className: "w-4 h-4"
 											}),
@@ -29426,23 +29850,23 @@ function Clientes() {
 									})
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Clientes.tsx:72:17",
+									"data-uid": "src/pages/Clientes.tsx:76:17",
 									"data-prohibitions": "[editContent]",
 									children: c.phone
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
-									"data-uid": "src/pages/Clientes.tsx:73:17",
+									"data-uid": "src/pages/Clientes.tsx:77:17",
 									"data-prohibitions": "[]",
 									className: "text-right",
 									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-										"data-uid": "src/pages/Clientes.tsx:74:19",
+										"data-uid": "src/pages/Clientes.tsx:78:19",
 										"data-prohibitions": "[]",
 										asChild: true,
 										variant: "outline",
 										size: "sm",
 										className: "h-9",
 										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
-											"data-uid": "src/pages/Clientes.tsx:75:21",
+											"data-uid": "src/pages/Clientes.tsx:79:21",
 											"data-prohibitions": "[]",
 											to: `/clientes/${c.id}`,
 											children: "Ver Detalle"
@@ -29450,46 +29874,56 @@ function Clientes() {
 									})
 								})
 							]
-						}, c.id))
+						}, c.id)), filtered.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableRow, {
+							"data-uid": "src/pages/Clientes.tsx:85:15",
+							"data-prohibitions": "[]",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TableCell, {
+								"data-uid": "src/pages/Clientes.tsx:86:17",
+								"data-prohibitions": "[]",
+								colSpan: 5,
+								className: "text-center py-8 text-slate-500",
+								children: "No se encontraron clientes."
+							})
+						})]
 					})]
 				})
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-				"data-uid": "src/pages/Clientes.tsx:85:7",
+				"data-uid": "src/pages/Clientes.tsx:96:7",
 				"data-prohibitions": "[editContent]",
 				className: "grid grid-cols-1 gap-4 md:hidden",
 				children: filtered.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Card, {
-					"data-uid": "src/pages/Clientes.tsx:87:11",
+					"data-uid": "src/pages/Clientes.tsx:98:11",
 					"data-prohibitions": "[editContent]",
 					className: "shadow-subtle border-slate-200",
 					children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardContent, {
-						"data-uid": "src/pages/Clientes.tsx:88:13",
+						"data-uid": "src/pages/Clientes.tsx:99:13",
 						"data-prohibitions": "[editContent]",
 						className: "p-5 space-y-4",
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Clientes.tsx:89:15",
+								"data-uid": "src/pages/Clientes.tsx:100:15",
 								"data-prohibitions": "[editContent]",
 								className: "flex flex-col gap-1",
 								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-									"data-uid": "src/pages/Clientes.tsx:90:17",
+									"data-uid": "src/pages/Clientes.tsx:101:17",
 									"data-prohibitions": "[editContent]",
 									className: "font-bold text-lg text-slate-800",
 									children: c.name
 								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-									"data-uid": "src/pages/Clientes.tsx:91:17",
+									"data-uid": "src/pages/Clientes.tsx:102:17",
 									"data-prohibitions": "[editContent]",
 									className: "text-sm font-medium text-orange-600",
 									children: c.rut
 								})]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Clientes.tsx:93:15",
+								"data-uid": "src/pages/Clientes.tsx:104:15",
 								"data-prohibitions": "[editContent]",
 								className: "flex items-center gap-2 text-sm text-slate-500",
 								children: [
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)(MapPin, {
-										"data-uid": "src/pages/Clientes.tsx:94:17",
+										"data-uid": "src/pages/Clientes.tsx:105:17",
 										"data-prohibitions": "[editContent]",
 										className: "w-4 h-4"
 									}),
@@ -29498,13 +29932,13 @@ function Clientes() {
 								]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-								"data-uid": "src/pages/Clientes.tsx:96:15",
+								"data-uid": "src/pages/Clientes.tsx:107:15",
 								"data-prohibitions": "[]",
 								asChild: true,
 								variant: "outline",
 								className: "w-full h-11 mt-2 border-slate-300",
 								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
-									"data-uid": "src/pages/Clientes.tsx:97:17",
+									"data-uid": "src/pages/Clientes.tsx:108:17",
 									"data-prohibitions": "[]",
 									to: `/clientes/${c.id}`,
 									children: "Ver Detalle de Cliente"
@@ -30551,4 +30985,4 @@ var App = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrowserRouter, {
 }));
 //#endregion
 
-//# sourceMappingURL=index-tuLBlQ2D.js.map
+//# sourceMappingURL=index-D578qBq8.js.map

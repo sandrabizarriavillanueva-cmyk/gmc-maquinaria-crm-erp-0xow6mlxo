@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClienteAddModal } from '@/components/ClienteAddModal'
+import { ClienteImportModal } from '@/components/ClienteImportModal'
 import { Search, MapPin } from 'lucide-react'
 
 export default function Clientes() {
@@ -34,7 +35,10 @@ export default function Clientes() {
             Visualiza y gestiona la cartera de clientes corporativos.
           </p>
         </div>
-        <ClienteAddModal />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <ClienteImportModal />
+          <ClienteAddModal />
+        </div>
       </div>
 
       <div className="relative max-w-md">
@@ -77,6 +81,13 @@ export default function Clientes() {
                 </TableCell>
               </TableRow>
             ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                  No se encontraron clientes.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
