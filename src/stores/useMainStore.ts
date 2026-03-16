@@ -8,7 +8,35 @@ import {
   AuditLog,
   RolePermissions,
   ModuleId,
+  User,
 } from '@/types'
+
+const MOCK_USERS: User[] = [
+  {
+    id: '1',
+    name: 'Juan Admin',
+    email: 'admin@gmc.cl',
+    role: 'Administrador',
+    avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
+    password: 'securepassword123',
+  },
+  {
+    id: '2',
+    name: 'Ana Vendedora',
+    email: 'ana.v@gmc.cl',
+    role: 'Vendedor',
+    avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=5',
+    password: 'securepassword123',
+  },
+  {
+    id: '3',
+    name: 'Carlos Técnico',
+    email: 'carlos.t@gmc.cl',
+    role: 'Técnico',
+    avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=8',
+    password: 'securepassword123',
+  },
+]
 
 const MOCK_PRODUCTS: Product[] = [
   {
@@ -155,6 +183,7 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
     auditoria: true,
     rutas: true,
     configuracion: true,
+    usuarios: true,
   },
   Vendedor: {
     dashboard: true,
@@ -166,6 +195,7 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
     auditoria: false,
     rutas: true,
     configuracion: true,
+    usuarios: false,
   },
   Técnico: {
     dashboard: true,
@@ -177,6 +207,7 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
     auditoria: false,
     rutas: true,
     configuracion: true,
+    usuarios: false,
   },
 }
 
@@ -187,6 +218,7 @@ export default function useMainStore() {
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<RolePermissions>(DEFAULT_PERMISSIONS)
 
+  const [users, setUsers] = useState<User[]>(MOCK_USERS)
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
   const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES)
@@ -204,6 +236,22 @@ export default function useMainStore() {
       },
       ...prev,
     ])
+  }
+
+  const addUser = (user: User) => {
+    setUsers((prev) => [user, ...prev])
+    addLog('Nuevo Colaborador', user.name)
+  }
+
+  const updateUser = (id: string, data: Partial<User>) => {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
+    addLog('Actualización Colaborador', data.name || id)
+  }
+
+  const deleteUser = (id: string) => {
+    const u = users.find((x) => x.id === id)
+    setUsers((prev) => prev.filter((x) => x.id !== id))
+    addLog('Eliminación Colaborador', u?.name || id)
   }
 
   const updateProductStock = (id: string, newStock: number) => {
@@ -274,10 +322,14 @@ export default function useMainStore() {
     setUserAvatar,
     permissions,
     updateRolePermission,
+    users,
     products,
     clients,
     invoices,
     auditLogs,
+    addUser,
+    updateUser,
+    deleteUser,
     updateProductStock,
     updateProductStatus,
     assignProductClient,

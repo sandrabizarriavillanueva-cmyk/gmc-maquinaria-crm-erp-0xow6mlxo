@@ -57,6 +57,15 @@ export interface AuditLog {
   target: string
 }
 
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  avatarUrl?: string
+  password?: string
+}
+
 export type ModuleId =
   | 'dashboard'
   | 'inventario'
@@ -67,5 +76,6 @@ export type ModuleId =
   | 'auditoria'
   | 'rutas'
   | 'configuracion'
+  | 'usuarios'
 
 export type RolePermissions = Record<UserRole, Record<ModuleId, boolean>>

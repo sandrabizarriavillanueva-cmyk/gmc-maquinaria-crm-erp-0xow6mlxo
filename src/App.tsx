@@ -15,6 +15,7 @@ import Auditoria from '@/pages/Auditoria'
 import Configuracion from '@/pages/Configuracion'
 import Rutas from '@/pages/Rutas'
 import PortalCliente from '@/pages/PortalCliente'
+import Usuarios from '@/pages/Usuarios'
 import NotFound from '@/pages/NotFound'
 
 const App = () => (
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/reportes" element={<Reportes />} />
             <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/rutas" element={<Rutas />} />
+            <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/configuracion" element={<Configuracion />} />
           </Route>
           <Route path="*" element={<NotFound />} />

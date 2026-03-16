@@ -24,6 +24,7 @@ import {
   Settings,
   MapPin,
   ExternalLink,
+  UserCog,
 } from 'lucide-react'
 
 export function AppSidebar() {
@@ -37,6 +38,7 @@ export function AppSidebar() {
     { id: 'ventas', title: 'Control Ventas', url: '/ventas', icon: ShoppingCart },
     { id: 'facturacion', title: 'Facturación', url: '/facturacion', icon: Receipt },
     { id: 'rutas', title: 'Rutas de Terreno', url: '/rutas', icon: MapPin },
+    { id: 'usuarios', title: 'Colaboradores', url: '/usuarios', icon: UserCog },
     { id: 'reportes', title: 'Reportes', url: '/reportes', icon: BarChart3 },
     { id: 'auditoria', title: 'Auditoría', url: '/auditoria', icon: ClipboardList },
     { id: 'configuracion', title: 'Configuración', url: '/configuracion', icon: Settings },
