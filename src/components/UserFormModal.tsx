@@ -42,7 +42,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       if (user) {
         setName(user.name)
         setEmail(user.email)
-        setPassword(user.password || '')
+        setPassword('')
         setRole(user.role)
         setPreview(user.avatarUrl || '')
       } else {
@@ -68,38 +68,41 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     e.preventDefault()
     if (!name || !email || (!user && !password)) {
       return toast({
-        title: 'Error',
-        description: 'Faltan campos requeridos.',
+        title: 'Campos incompletos',
+        description: 'Por favor, completa todos los campos requeridos.',
         variant: 'destructive',
       })
     }
 
     setIsLoading(true)
     try {
+      const payload: any = { name, email, role, avatarUrl: preview }
+
+      // En bases de datos como PocketBase se requiere passwordConfirm al cambiar o crear contraseñas
+      if (password && password.trim() !== '') {
+        payload.password = password
+        payload.passwordConfirm = password
+      }
+
       if (user) {
-        await updateUser(user.id, { name, email, password, role, avatarUrl: preview })
+        await updateUser(user.id, payload)
         toast({
-          title: 'Usuario actualizado',
+          title: 'Colaborador actualizado',
           description: 'Los cambios se guardaron correctamente.',
         })
       } else {
-        await addUser({
-          name,
-          email,
-          password,
-          role,
-          avatarUrl: preview,
-        })
+        await addUser(payload)
         toast({
-          title: 'Usuario creado',
-          description: 'El nuevo colaborador fue añadido al sistema.',
+          title: 'Colaborador creado',
+          description: 'El nuevo miembro fue añadido al sistema.',
         })
       }
       onOpenChange(false)
-    } catch (err) {
+    } catch (err: any) {
       toast({
-        title: 'Error de base de datos',
-        description: 'Hubo un problema al guardar los datos en el servidor.',
+        title: 'Error de persistencia',
+        description:
+          err.message || 'El servidor rechazó los datos. Verifica que el correo no esté en uso.',
         variant: 'destructive',
       })
     } finally {
@@ -161,7 +164,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             <Input
               type="password"
               required={!user}
-              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Mínimo 6 caracteres'}
+              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Mínimo 8 caracteres'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

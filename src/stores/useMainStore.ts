@@ -212,6 +212,8 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
   },
 }
 
+const isMockId = (id: string) => id.length < 10
+
 export default function useMainStore() {
   const [currentUser, setCurrentUser] = useState('Juan Admin')
   const [currentRole, setCurrentRole] = useState<UserRole>('Administrador')
@@ -260,13 +262,18 @@ export default function useMainStore() {
     ])
   }
 
-  const addUser = async (user: Omit<User, 'id'>) => {
+  const addUser = async (user: any) => {
     const created = await pb.create('collaborators', user)
     setUsers((prev) => [created, ...prev])
     addLog('Nuevo Colaborador', user.name)
   }
 
   const updateUser = async (id: string, data: Partial<User>) => {
+    if (isMockId(id)) {
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
+      addLog('Actualización Colaborador (Mock)', data.name || id)
+      return
+    }
     const updated = await pb.update('collaborators', id, data)
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
     addLog('Actualización Colaborador', data.name || id)
@@ -274,7 +281,9 @@ export default function useMainStore() {
 
   const deleteUser = async (id: string) => {
     const u = users.find((x) => x.id === id)
-    await pb.delete('collaborators', id)
+    if (!isMockId(id)) {
+      await pb.delete('collaborators', id)
+    }
     setUsers((prev) => prev.filter((x) => x.id !== id))
     addLog('Eliminación Colaborador', u?.name || id)
   }
@@ -287,26 +296,34 @@ export default function useMainStore() {
 
   const updateProductStock = async (id: string, newStock: number) => {
     const p = products.find((x) => x.id === id)
-    await pb.update('inventory', id, { stock: newStock })
+    if (!isMockId(id)) {
+      await pb.update('inventory', id, { stock: newStock })
+    }
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, stock: newStock } : x)))
     addLog('Cambio de Stock', `${p?.name} (Nuevo: ${newStock})`)
   }
 
   const updateProductStatus = async (id: string, newStatus: EquipmentStatus) => {
     const p = products.find((x) => x.id === id)
-    await pb.update('inventory', id, { status: newStatus })
+    if (!isMockId(id)) {
+      await pb.update('inventory', id, { status: newStatus })
+    }
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, status: newStatus } : x)))
     addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
   const assignProductClient = async (id: string, clientId: string) => {
-    await pb.update('inventory', id, { clientId })
+    if (!isMockId(id)) {
+      await pb.update('inventory', id, { clientId })
+    }
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
   }
 
   const updateProductImage = async (id: string, imageUrl: string) => {
     const p = products.find((x) => x.id === id)
-    await pb.update('inventory', id, { imageUrl })
+    if (!isMockId(id)) {
+      await pb.update('inventory', id, { imageUrl })
+    }
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl } : x)))
     addLog('Actualización de Imagen', p?.name || id)
   }
