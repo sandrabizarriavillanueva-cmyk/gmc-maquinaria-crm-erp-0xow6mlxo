@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import { pb } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -101,7 +101,7 @@ export function InventarioImportModal() {
 
       const itemsToImport = rawData.slice(startIndex)
 
-      const BATCH_SIZE = 50
+      const BATCH_SIZE = 20
       const totalBatches = Math.ceil(itemsToImport.length / BATCH_SIZE)
       setProgress({ current: 0, total: totalBatches })
 
@@ -165,21 +165,23 @@ export function InventarioImportModal() {
           .filter((r) => r !== null)
 
         if (dbRows.length > 0) {
-          // Usamos upsert para evitar violaciones de clave única/RLS si el producto ya existe.
-          // Esto actualiza el producto si el SKU ya existe, o lo inserta si es nuevo.
-          const { error } = await supabase
-            .from('products')
-            .upsert(dbRows as any[], { onConflict: 'code' })
-          if (error) {
-            errors += dbRows.length
-            errorDetails.push(`Error en lote ${batchIdx + 1}: ${error.message}`)
-          } else {
-            imported += dbRows.length
+          for (const row of dbRows) {
+            try {
+              const existing = await pb.get('products', `code='${row!.code}'`)
+              if (existing && existing.length > 0) {
+                await pb.update('products', existing[0].id, row)
+              } else {
+                await pb.create('products', row)
+              }
+              imported++
+            } catch (err: any) {
+              errors++
+              errorDetails.push(`Error SKU ${row!.code}: ${err.message}`)
+            }
           }
         }
 
         setProgress({ current: batchIdx + 1, total: totalBatches })
-        await new Promise((r) => setTimeout(r, 200)) // Throttle to ensure stability
       }
 
       if (errors > 0) {

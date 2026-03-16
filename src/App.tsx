@@ -3,7 +3,9 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { MainProvider } from '@/context/MainContext'
+import { AuthProvider } from '@/context/AuthContext'
 import Layout from '@/components/Layout'
+import Login from '@/pages/Login'
 import Index from '@/pages/Index'
 import Inventario from '@/pages/Inventario'
 import Clientes from '@/pages/Clientes'
@@ -20,29 +22,32 @@ import NotFound from '@/pages/NotFound'
 
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-    <MainProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route path="/portal-cliente" element={<PortalCliente />} />
-          <Route element={<Layout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/inventario" element={<Inventario />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/clientes/:id" element={<ClienteDetalle />} />
-            <Route path="/ventas" element={<Ventas />} />
-            <Route path="/facturacion" element={<Facturacion />} />
-            <Route path="/reportes" element={<Reportes />} />
-            <Route path="/auditoria" element={<Auditoria />} />
-            <Route path="/rutas" element={<Rutas />} />
-            <Route path="/usuarios" element={<Usuarios />} />
-            <Route path="/configuracion" element={<Configuracion />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </MainProvider>
+    <AuthProvider>
+      <MainProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/portal-cliente" element={<PortalCliente />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/inventario" element={<Inventario />} />
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/clientes/:id" element={<ClienteDetalle />} />
+              <Route path="/ventas" element={<Ventas />} />
+              <Route path="/facturacion" element={<Facturacion />} />
+              <Route path="/reportes" element={<Reportes />} />
+              <Route path="/auditoria" element={<Auditoria />} />
+              <Route path="/rutas" element={<Rutas />} />
+              <Route path="/usuarios" element={<Usuarios />} />
+              <Route path="/configuracion" element={<Configuracion />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </MainProvider>
+    </AuthProvider>
   </BrowserRouter>
 )
 

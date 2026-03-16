@@ -90,6 +90,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
 
     if (!skipPassword && password && password.trim() !== '') {
       payload.password = password
+      payload.passwordConfirm = password
     }
 
     if (avatarFile) {
@@ -99,7 +100,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
           formData.append(key, val as any)
         }
       })
-      formData.append('avatar', avatarFile)
+      formData.append('avatar_url', avatarFile)
       return formData
     }
 
@@ -113,9 +114,13 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       formSchema.parse({ name, email, password: password || undefined, role })
     } catch (err: any) {
       if (err instanceof z.ZodError) {
+        const msg =
+          err.errors && err.errors.length > 0
+            ? err.errors[0].message
+            : 'Revise los datos ingresados'
         return toast({
           title: 'Error de validación',
-          description: err?.errors?.[0]?.message || 'Revise los datos ingresados',
+          description: msg,
           variant: 'destructive',
         })
       }

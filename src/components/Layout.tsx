@@ -1,11 +1,28 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from './AppSidebar'
 import { RoleSelector } from './RoleSelector'
 import { NotificationsDropdown } from './NotificationsDropdown'
+import { useAuth } from '@/context/AuthContext'
+import { useStore } from '@/context/MainContext'
+import { LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function Layout() {
   const location = useLocation()
+  const { token, user, logout } = useAuth()
+  const { setCurrentRole } = useStore()
+
+  useEffect(() => {
+    if (user && user.role) {
+      setCurrentRole(user.role)
+    }
+  }, [user, setCurrentRole])
+
+  if (!token) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
 
   return (
     <SidebarProvider>
@@ -22,6 +39,15 @@ export default function Layout() {
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationsDropdown />
             <RoleSelector />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logout}
+              title="Cerrar sesión"
+              className="text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </header>
         <main className="flex-1 overflow-auto relative">

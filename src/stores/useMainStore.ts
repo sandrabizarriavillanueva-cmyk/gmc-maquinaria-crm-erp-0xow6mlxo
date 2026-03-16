@@ -122,9 +122,12 @@ export default function useMainStore() {
         const dbUsers = await pb.get('collaborators')
         if (dbUsers && dbUsers.length > 0) {
           const mappedUsers = dbUsers.map((u: any) => ({
-            ...u,
-            avatarUrl: u.avatar
-              ? pb.getFileUrl('collaborators', u.id, u.avatar)
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            avatarUrl: u.avatar_url
+              ? pb.getFileUrl('collaborators', u.id, u.avatar_url)
               : u.avatarUrl || null,
           }))
           setUsers(mappedUsers)
@@ -136,11 +139,24 @@ export default function useMainStore() {
       }
 
       try {
-        const dbProducts = await pb.get('inventory')
+        const dbProducts = await pb.get('products')
         if (dbProducts && dbProducts.length > 0) {
           const mappedProducts = dbProducts.map((p: any) => ({
-            ...p,
-            imageUrl: p.image ? pb.getFileUrl('inventory', p.id, p.image) : p.imageUrl || null,
+            id: p.id,
+            sku: p.code,
+            name: p.name,
+            brand: p.brand,
+            category: p.category,
+            status: p.status,
+            stock: p.stock,
+            minStock: p.min_stock,
+            price: p.price,
+            cost: p.cost,
+            specs: p.specs,
+            imageUrl: p.image_url
+              ? pb.getFileUrl('products', p.id, p.image_url)
+              : p.imageUrl || null,
+            clientId: p.client_id,
           }))
           setProducts(mappedProducts)
         } else {
@@ -169,12 +185,16 @@ export default function useMainStore() {
 
   const addUser = async (userPayload: any) => {
     const created = await pb.create('collaborators', userPayload)
-    if (created && created.id) {
-      created.avatarUrl = created.avatar
-        ? pb.getFileUrl('collaborators', created.id, created.avatar)
-        : created.avatarUrl || null
+    const mappedUser = {
+      id: created.id,
+      name: created.name,
+      email: created.email,
+      role: created.role,
+      avatarUrl: created.avatar_url
+        ? pb.getFileUrl('collaborators', created.id, created.avatar_url)
+        : null,
     }
-    setUsers((prev) => [created, ...prev])
+    setUsers((prev) => [mappedUser, ...prev])
     const name = userPayload instanceof FormData ? userPayload.get('name') : userPayload.name
     addLog('Nuevo Colaborador', (name as string) || 'Usuario')
   }
@@ -188,12 +208,16 @@ export default function useMainStore() {
       return
     }
     const updated = await pb.update('collaborators', id, dataPayload)
-    if (updated && updated.id) {
-      updated.avatarUrl = updated.avatar
-        ? pb.getFileUrl('collaborators', updated.id, updated.avatar)
-        : updated.avatarUrl || null
+    const mappedUser = {
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role,
+      avatarUrl: updated.avatar_url
+        ? pb.getFileUrl('collaborators', updated.id, updated.avatar_url)
+        : null,
     }
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...mappedUser } : u)))
     const name = dataPayload instanceof FormData ? dataPayload.get('name') : dataPayload.name
     addLog('Actualización Colaborador', (name as string) || id)
   }
@@ -208,32 +232,53 @@ export default function useMainStore() {
   }
 
   const addProduct = async (productPayload: any) => {
-    const created = await pb.create('inventory', productPayload)
-    if (created && created.id) {
-      created.imageUrl = created.image
-        ? pb.getFileUrl('inventory', created.id, created.image)
-        : created.imageUrl || null
+    const payload = {
+      code: productPayload.sku,
+      name: productPayload.name,
+      brand: productPayload.brand,
+      category: productPayload.category,
+      price: productPayload.price,
+      stock: productPayload.stock,
+      min_stock: productPayload.minStock,
+      status: productPayload.status,
+      cost: productPayload.cost || 0,
     }
-    setProducts((prev) => [created, ...prev])
-    addLog('Nuevo Equipo', created.name)
+    const created = await pb.create('products', payload)
+    const mapped = {
+      id: created.id,
+      sku: created.code,
+      name: created.name,
+      brand: created.brand,
+      category: created.category,
+      status: created.status,
+      stock: created.stock,
+      minStock: created.min_stock,
+      price: created.price,
+      cost: created.cost,
+      specs: created.specs,
+      imageUrl: created.image_url ? pb.getFileUrl('products', created.id, created.image_url) : null,
+      clientId: created.client_id,
+    }
+    setProducts((prev) => [mapped, ...prev])
+    addLog('Nuevo Equipo', mapped.name)
   }
 
   const updateProductStock = async (id: string, newStock: number) => {
     const p = products.find((x) => x.id === id)
-    if (!isMockId(id)) await pb.update('inventory', id, { stock: newStock })
+    if (!isMockId(id)) await pb.update('products', id, { stock: newStock })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, stock: newStock } : x)))
     addLog('Cambio de Stock', `${p?.name} (Nuevo: ${newStock})`)
   }
 
   const updateProductStatus = async (id: string, newStatus: EquipmentStatus) => {
     const p = products.find((x) => x.id === id)
-    if (!isMockId(id)) await pb.update('inventory', id, { status: newStatus })
+    if (!isMockId(id)) await pb.update('products', id, { status: newStatus })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, status: newStatus } : x)))
     addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
   const assignProductClient = async (id: string, clientId: string) => {
-    if (!isMockId(id)) await pb.update('inventory', id, { clientId })
+    if (!isMockId(id)) await pb.update('products', id, { client_id: clientId })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
   }
 
@@ -241,12 +286,12 @@ export default function useMainStore() {
     const p = products.find((x) => x.id === id)
     if (!isMockId(id)) {
       const payload = new FormData()
-      if (image instanceof File) payload.append('image', image)
-      else payload.append('imageUrl', image)
-      const updated = await pb.update('inventory', id, payload)
-      const finalUrl = updated.image
-        ? pb.getFileUrl('inventory', updated.id, updated.image)
-        : updated.imageUrl
+      if (image instanceof File) payload.append('image_url', image)
+      else payload.append('image_url', image)
+      const updated = await pb.update('products', id, payload)
+      const finalUrl = updated.image_url
+        ? pb.getFileUrl('products', updated.id, updated.image_url)
+        : null
       setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl: finalUrl } : x)))
     } else {
       const finalUrl = image instanceof File ? URL.createObjectURL(image) : image
