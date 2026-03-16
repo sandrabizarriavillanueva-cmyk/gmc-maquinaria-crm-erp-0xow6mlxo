@@ -68,6 +68,30 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     }
   }
 
+  const buildPayload = (skipPassword = false) => {
+    const payload: any = { name, email, role }
+
+    if (!skipPassword && password && password.trim() !== '') {
+      payload.password = password
+      payload.passwordConfirm = password
+    }
+
+    if (avatarFile) {
+      const formData = new FormData()
+      Object.entries(payload).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          formData.append(key, val as any)
+        }
+      })
+      formData.append('avatar', avatarFile)
+      return formData
+    } else if (preview && !preview.startsWith('data:')) {
+      payload.avatarUrl = preview
+    }
+
+    return payload
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email) {
@@ -79,28 +103,17 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     }
 
     setIsLoading(true)
-    const payload: any = { name, email, role }
-
-    if (avatarFile) {
-      payload.avatarUrl = avatarFile
-    } else if (preview && !preview.startsWith('data:')) {
-      payload.avatarUrl = preview
-    }
-
-    if (password && password.trim() !== '') {
-      payload.password = password
-      payload.passwordConfirm = password
-    }
+    const initialPayload = buildPayload(false)
 
     try {
       if (user) {
-        await updateUser(user.id, payload)
+        await updateUser(user.id, initialPayload)
         toast({
           title: 'Colaborador actualizado',
           description: 'Los cambios se guardaron correctamente.',
         })
       } else {
-        await addUser(payload)
+        await addUser(initialPayload)
         toast({
           title: 'Colaborador creado',
           description: 'El nuevo miembro fue añadido al sistema.',
@@ -109,18 +122,17 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       onOpenChange(false)
     } catch (err: any) {
       // Silently handle Base collection schema rejection for password
-      if (err.message && err.message.includes('400') && payload.password) {
-        delete payload.password
-        delete payload.passwordConfirm
+      if (err.message && err.message.includes('400') && password) {
+        const retryPayload = buildPayload(true)
         try {
           if (user) {
-            await updateUser(user.id, payload)
+            await updateUser(user.id, retryPayload)
           } else {
-            await addUser(payload)
+            await addUser(retryPayload)
           }
           toast({
             title: 'Colaborador guardado',
-            description: 'Guardado exitosamente en el sistema.',
+            description: 'Guardado exitosamente en el sistema sin contraseña.',
           })
           onOpenChange(false)
         } catch (fallbackErr: any) {
@@ -195,9 +207,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             <Label>Contraseña</Label>
             <Input
               type="password"
-              placeholder={
-                user ? 'Dejar en blanco para mantener la actual' : 'Opcional según configuración'
-              }
+              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Ej. pepehome@111'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

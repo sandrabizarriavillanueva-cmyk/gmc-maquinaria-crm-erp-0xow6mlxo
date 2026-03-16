@@ -27,7 +27,6 @@ const MOCK_USERS: User[] = [
     email: 'ana.v@gmc.cl',
     role: 'Vendedor',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=5',
-    password: 'securepassword123',
   },
   {
     id: '3',
@@ -35,7 +34,6 @@ const MOCK_USERS: User[] = [
     email: 'carlos.t@gmc.cl',
     role: 'Técnico',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=8',
-    password: 'securepassword123',
   },
 ]
 
@@ -51,41 +49,6 @@ const MOCK_PRODUCTS: Product[] = [
     minStock: 2,
     price: 15000000,
   },
-  {
-    id: '2',
-    sku: 'CMP-002',
-    name: 'Compresor Pistón 10HP',
-    brand: 'Schulz',
-    category: 'Compresor',
-    status: 'En Mantención',
-    stock: 1,
-    minStock: 3,
-    price: 2500000,
-    clientId: '2',
-  },
-  {
-    id: '3',
-    sku: 'SEC-001',
-    name: 'Secador de Aire 100PCM',
-    brand: 'Metalplan',
-    category: 'Secador',
-    status: 'Disponible',
-    stock: 8,
-    minStock: 5,
-    price: 3200000,
-  },
-  {
-    id: '4',
-    sku: 'CHL-001',
-    name: 'Chiller Industrial 20TR',
-    brand: 'Atlas Copco',
-    category: 'Chiller',
-    status: 'Arrendado',
-    stock: 0,
-    minStock: 1,
-    price: 18000000,
-    clientId: '1',
-  },
 ]
 
 const MOCK_CLIENTS: Client[] = [
@@ -96,80 +59,6 @@ const MOCK_CLIENTS: Client[] = [
     region: 'Antofagasta',
     phone: '+56 9 1234 5678',
     email: 'contacto@minerianorte.cl',
-  },
-  {
-    id: '2',
-    rut: '77.987.654-3',
-    name: 'Construcciones Sur Ltda',
-    region: 'Biobío',
-    phone: '+56 9 8765 4321',
-    email: 'operaciones@consur.cl',
-  },
-  {
-    id: '3',
-    rut: '88.111.222-K',
-    name: 'Industrias Madereras SA',
-    region: 'Los Lagos',
-    phone: '+56 9 1111 2222',
-    email: 'compras@madereras.cl',
-  },
-  {
-    id: '4',
-    rut: '79.555.444-1',
-    name: 'Manufacturas RM S.A.',
-    region: 'Santiago',
-    phone: '+56 9 9999 8888',
-    email: 'info@mrm.cl',
-  },
-]
-
-const MOCK_INVOICES: Invoice[] = [
-  {
-    id: '1',
-    invoiceNumber: 'F-1001',
-    date: '2023-10-01',
-    clientId: '1',
-    amount: 17850000,
-    status: 'Pendiente',
-    description: 'Venta - Compresor Tornillo 50HP',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'F-1002',
-    date: '2023-09-15',
-    clientId: '2',
-    amount: 2975000,
-    status: 'Vencida',
-    description: 'Servicio Técnico - Reparación Pistón',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'F-1003',
-    date: '2023-10-05',
-    clientId: '1',
-    amount: 3808000,
-    status: 'Pagada',
-    description: 'Venta - Secador de Aire 100PCM',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'F-1004',
-    date: '2023-10-10',
-    clientId: '3',
-    amount: 21420000,
-    status: 'Pendiente',
-    description: 'Arriendo - Chiller Industrial 20TR',
-  },
-]
-
-const MOCK_LOGS: AuditLog[] = [
-  {
-    id: '1',
-    date: new Date().toISOString(),
-    user: 'Juan Admin',
-    role: 'Administrador',
-    action: 'Inicio de Sistema',
-    target: 'App',
   },
 ]
 
@@ -224,40 +113,40 @@ export default function useMainStore() {
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES)
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_LOGS)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
 
   useEffect(() => {
     const initData = async () => {
       try {
         const dbUsers = await pb.get('collaborators')
-        if (dbUsers.length > 0) {
+        if (dbUsers && dbUsers.length > 0) {
           const mappedUsers = dbUsers.map((u: any) => ({
             ...u,
-            avatarUrl: pb.getFileUrl('collaborators', u.id, u.avatarUrl || u.avatar),
+            avatarUrl: u.avatar
+              ? pb.getFileUrl('collaborators', u.id, u.avatar)
+              : u.avatarUrl || null,
           }))
           setUsers(mappedUsers)
         } else {
           setUsers(MOCK_USERS)
         }
       } catch (err) {
-        console.warn('Fallback to mock users', err)
         setUsers(MOCK_USERS)
       }
 
       try {
         const dbProducts = await pb.get('inventory')
-        if (dbProducts.length > 0) {
+        if (dbProducts && dbProducts.length > 0) {
           const mappedProducts = dbProducts.map((p: any) => ({
             ...p,
-            imageUrl: pb.getFileUrl('inventory', p.id, p.imageUrl || p.image),
+            imageUrl: p.image ? pb.getFileUrl('inventory', p.id, p.image) : p.imageUrl || null,
           }))
           setProducts(mappedProducts)
         } else {
           setProducts(MOCK_PRODUCTS)
         }
       } catch (err) {
-        console.warn('Fallback to mock products', err)
         setProducts(MOCK_PRODUCTS)
       }
     }
@@ -278,31 +167,35 @@ export default function useMainStore() {
     ])
   }
 
-  const addUser = async (user: any) => {
-    const created = await pb.create('collaborators', user)
-    created.avatarUrl = pb.getFileUrl(
-      'collaborators',
-      created.id,
-      created.avatarUrl || created.avatar,
-    )
+  const addUser = async (userPayload: any) => {
+    const created = await pb.create('collaborators', userPayload)
+    if (created && created.id) {
+      created.avatarUrl = created.avatar
+        ? pb.getFileUrl('collaborators', created.id, created.avatar)
+        : created.avatarUrl || null
+    }
     setUsers((prev) => [created, ...prev])
-    addLog('Nuevo Colaborador', user.name)
+    const name = userPayload instanceof FormData ? userPayload.get('name') : userPayload.name
+    addLog('Nuevo Colaborador', (name as string) || 'Usuario')
   }
 
-  const updateUser = async (id: string, data: any) => {
+  const updateUser = async (id: string, dataPayload: any) => {
     if (isMockId(id)) {
-      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
-      addLog('Actualización Colaborador (Mock)', data.name || id)
+      const plainData =
+        dataPayload instanceof FormData ? Object.fromEntries(dataPayload) : dataPayload
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...plainData } : u)))
+      addLog('Actualización Colaborador (Mock)', (plainData.name as string) || id)
       return
     }
-    const updated = await pb.update('collaborators', id, data)
-    updated.avatarUrl = pb.getFileUrl(
-      'collaborators',
-      updated.id,
-      updated.avatarUrl || updated.avatar,
-    )
+    const updated = await pb.update('collaborators', id, dataPayload)
+    if (updated && updated.id) {
+      updated.avatarUrl = updated.avatar
+        ? pb.getFileUrl('collaborators', updated.id, updated.avatar)
+        : updated.avatarUrl || null
+    }
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
-    addLog('Actualización Colaborador', data.name || id)
+    const name = dataPayload instanceof FormData ? dataPayload.get('name') : dataPayload.name
+    addLog('Actualización Colaborador', (name as string) || id)
   }
 
   const deleteUser = async (id: string) => {
@@ -314,43 +207,46 @@ export default function useMainStore() {
     addLog('Eliminación Colaborador', u?.name || id)
   }
 
-  const addProduct = async (product: Omit<Product, 'id'>) => {
-    const created = await pb.create('inventory', product)
-    created.imageUrl = pb.getFileUrl('inventory', created.id, created.imageUrl || created.image)
+  const addProduct = async (productPayload: any) => {
+    const created = await pb.create('inventory', productPayload)
+    if (created && created.id) {
+      created.imageUrl = created.image
+        ? pb.getFileUrl('inventory', created.id, created.image)
+        : created.imageUrl || null
+    }
     setProducts((prev) => [created, ...prev])
-    addLog('Nuevo Equipo', product.name)
+    addLog('Nuevo Equipo', created.name)
   }
 
   const updateProductStock = async (id: string, newStock: number) => {
     const p = products.find((x) => x.id === id)
-    if (!isMockId(id)) {
-      await pb.update('inventory', id, { stock: newStock })
-    }
+    if (!isMockId(id)) await pb.update('inventory', id, { stock: newStock })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, stock: newStock } : x)))
     addLog('Cambio de Stock', `${p?.name} (Nuevo: ${newStock})`)
   }
 
   const updateProductStatus = async (id: string, newStatus: EquipmentStatus) => {
     const p = products.find((x) => x.id === id)
-    if (!isMockId(id)) {
-      await pb.update('inventory', id, { status: newStatus })
-    }
+    if (!isMockId(id)) await pb.update('inventory', id, { status: newStatus })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, status: newStatus } : x)))
     addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
   const assignProductClient = async (id: string, clientId: string) => {
-    if (!isMockId(id)) {
-      await pb.update('inventory', id, { clientId })
-    }
+    if (!isMockId(id)) await pb.update('inventory', id, { clientId })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
   }
 
   const updateProductImage = async (id: string, image: File | string) => {
     const p = products.find((x) => x.id === id)
     if (!isMockId(id)) {
-      const updated = await pb.update('inventory', id, { imageUrl: image })
-      const finalUrl = pb.getFileUrl('inventory', updated.id, updated.imageUrl || updated.image)
+      const payload = new FormData()
+      if (image instanceof File) payload.append('image', image)
+      else payload.append('imageUrl', image)
+      const updated = await pb.update('inventory', id, payload)
+      const finalUrl = updated.image
+        ? pb.getFileUrl('inventory', updated.id, updated.image)
+        : updated.imageUrl
       setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl: finalUrl } : x)))
     } else {
       const finalUrl = image instanceof File ? URL.createObjectURL(image) : image
