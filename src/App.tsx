@@ -12,6 +12,9 @@ import Ventas from '@/pages/Ventas'
 import Facturacion from '@/pages/Facturacion'
 import Reportes from '@/pages/Reportes'
 import Auditoria from '@/pages/Auditoria'
+import Configuracion from '@/pages/Configuracion'
+import Rutas from '@/pages/Rutas'
+import PortalCliente from '@/pages/PortalCliente'
 import NotFound from '@/pages/NotFound'
 
 const App = () => (
@@ -21,6 +24,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
+          <Route path="/portal-cliente" element={<PortalCliente />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/inventario" element={<Inventario />} />
@@ -30,6 +34,8 @@ const App = () => (
             <Route path="/facturacion" element={<Facturacion />} />
             <Route path="/reportes" element={<Reportes />} />
             <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/rutas" element={<Rutas />} />
+            <Route path="/configuracion" element={<Configuracion />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

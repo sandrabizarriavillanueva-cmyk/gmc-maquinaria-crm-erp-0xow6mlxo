@@ -15,6 +15,7 @@ export interface Product {
   bar?: number
   specs?: string
   imageUrl?: string
+  clientId?: string
 }
 
 export interface Document {
@@ -44,6 +45,7 @@ export interface Invoice {
   amount: number
   status: 'Pendiente' | 'Pagada' | 'Vencida'
   description?: string
+  signatureUrl?: string
 }
 
 export interface AuditLog {
@@ -54,3 +56,16 @@ export interface AuditLog {
   action: string
   target: string
 }
+
+export type ModuleId =
+  | 'dashboard'
+  | 'inventario'
+  | 'clientes'
+  | 'ventas'
+  | 'facturacion'
+  | 'reportes'
+  | 'auditoria'
+  | 'rutas'
+  | 'configuracion'
+
+export type RolePermissions = Record<UserRole, Record<ModuleId, boolean>>

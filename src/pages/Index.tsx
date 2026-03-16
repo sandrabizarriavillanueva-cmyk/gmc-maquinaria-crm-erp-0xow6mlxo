@@ -13,16 +13,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 export default function Index() {
-  const { products, invoices, updateProductStock, currentRole } = useStore()
+  const { products, invoices, updateProductStock, currentRole, permissions } = useStore()
+
+  if (!permissions[currentRole].dashboard) return <RestrictedAccess />
 
   const ventasMes = invoices.reduce((acc, inv) => acc + inv.amount, 0)
   const alertasStock = products.filter((p) => p.stock < p.minStock)
   const pendientes = invoices.filter((i) => i.status !== 'Pagada')
   const enMantencion = products.filter((p) => p.status === 'En Mantención')
 
-  const isTecnico = currentRole === 'Técnico'
+  const canSell = permissions[currentRole].ventas
 
   return (
     <div className="space-y-8 pb-20 md:pb-0">
@@ -35,7 +38,7 @@ export default function Index() {
             Estado general de la compañía al día de hoy.
           </p>
         </div>
-        {!isTecnico && (
+        {canSell && (
           <Button
             asChild
             className="hidden md:flex bg-orange-500 hover:bg-orange-600 shadow-elevation h-11 gap-2 px-6"
@@ -48,7 +51,7 @@ export default function Index() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {!isTecnico && (
+        {canSell && (
           <Card className="shadow-subtle border-l-4 border-l-emerald-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
@@ -74,7 +77,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {!isTecnico && (
+        {canSell && (
           <Card className="shadow-subtle border-l-4 border-l-yellow-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
@@ -106,16 +109,18 @@ export default function Index() {
           <CardHeader className="border-b bg-slate-50 rounded-t-lg">
             <CardTitle className="text-lg flex justify-between items-center text-slate-800">
               Alertas de Inventario Crítico
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="text-orange-600 hover:text-orange-700"
-              >
-                <Link to="/inventario">
-                  Ver Todo <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
+              {permissions[currentRole].inventario && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="text-orange-600 hover:text-orange-700"
+                >
+                  <Link to="/inventario">
+                    Ver Todo <ArrowRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -184,7 +189,7 @@ export default function Index() {
         </Card>
       </div>
 
-      {!isTecnico && (
+      {canSell && (
         <div className="fixed bottom-6 right-6 md:hidden z-50">
           <Button
             asChild

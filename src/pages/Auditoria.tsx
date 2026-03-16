@@ -8,20 +8,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ShieldAlert } from 'lucide-react'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 export default function Auditoria() {
-  const { currentRole, auditLogs } = useStore()
+  const { currentRole, permissions, auditLogs, userAvatar } = useStore()
 
-  if (currentRole !== 'Administrador') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <ShieldAlert className="w-16 h-16 text-slate-300" />
-        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
-        <p className="text-slate-400">Solo administradores pueden ver el historial de auditoría.</p>
-      </div>
-    )
-  }
+  if (!permissions[currentRole].auditoria) return <RestrictedAccess />
 
   return (
     <div className="space-y-6">
@@ -56,7 +48,22 @@ export default function Auditoria() {
                 <TableCell className="whitespace-nowrap text-sm text-slate-500">
                   {new Date(log.date).toLocaleString('es-CL')}
                 </TableCell>
-                <TableCell className="font-medium">{log.user}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {userAvatar && log.user.includes('Admin') ? (
+                      <img
+                        src={userAvatar}
+                        className="w-6 h-6 rounded-full object-cover"
+                        alt="User"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                        {log.user.charAt(0)}
+                      </div>
+                    )}
+                    {log.user}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="bg-slate-50">
                     {log.role}

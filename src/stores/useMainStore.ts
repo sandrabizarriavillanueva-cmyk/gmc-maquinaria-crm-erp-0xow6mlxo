@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { Product, Client, Invoice, EquipmentStatus, UserRole, AuditLog } from '@/types'
+import {
+  Product,
+  Client,
+  Invoice,
+  EquipmentStatus,
+  UserRole,
+  AuditLog,
+  RolePermissions,
+  ModuleId,
+} from '@/types'
 
 const MOCK_PRODUCTS: Product[] = [
   {
@@ -12,8 +21,6 @@ const MOCK_PRODUCTS: Product[] = [
     stock: 5,
     minStock: 2,
     price: 15000000,
-    hp: 50,
-    bar: 8,
   },
   {
     id: '2',
@@ -25,8 +32,7 @@ const MOCK_PRODUCTS: Product[] = [
     stock: 1,
     minStock: 3,
     price: 2500000,
-    hp: 10,
-    bar: 10,
+    clientId: '2',
   },
   {
     id: '3',
@@ -49,6 +55,7 @@ const MOCK_PRODUCTS: Product[] = [
     stock: 0,
     minStock: 1,
     price: 18000000,
+    clientId: '1',
   },
 ]
 
@@ -76,6 +83,14 @@ const MOCK_CLIENTS: Client[] = [
     region: 'Los Lagos',
     phone: '+56 9 1111 2222',
     email: 'compras@madereras.cl',
+  },
+  {
+    id: '4',
+    rut: '79.555.444-1',
+    name: 'Manufacturas RM S.A.',
+    region: 'Santiago',
+    phone: '+56 9 9999 8888',
+    email: 'info@mrm.cl',
   },
 ]
 
@@ -127,19 +142,50 @@ const MOCK_LOGS: AuditLog[] = [
     action: 'Inicio de Sistema',
     target: 'App',
   },
-  {
-    id: '2',
-    date: new Date(Date.now() - 3600000).toISOString(),
-    user: 'María Vendedor',
-    role: 'Vendedor',
-    action: 'Nueva Transacción',
-    target: 'Folio: F-1004',
-  },
 ]
+
+const DEFAULT_PERMISSIONS: RolePermissions = {
+  Administrador: {
+    dashboard: true,
+    inventario: true,
+    clientes: true,
+    ventas: true,
+    facturacion: true,
+    reportes: true,
+    auditoria: true,
+    rutas: true,
+    configuracion: true,
+  },
+  Vendedor: {
+    dashboard: true,
+    inventario: false,
+    clientes: true,
+    ventas: true,
+    facturacion: true,
+    reportes: false,
+    auditoria: false,
+    rutas: true,
+    configuracion: true,
+  },
+  Técnico: {
+    dashboard: true,
+    inventario: true,
+    clientes: false,
+    ventas: false,
+    facturacion: false,
+    reportes: false,
+    auditoria: false,
+    rutas: true,
+    configuracion: true,
+  },
+}
 
 export default function useMainStore() {
   const [currentUser, setCurrentUser] = useState('Juan Admin')
   const [currentRole, setCurrentRole] = useState<UserRole>('Administrador')
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
+  const [userAvatar, setUserAvatar] = useState<string | null>(null)
+  const [permissions, setPermissions] = useState<RolePermissions>(DEFAULT_PERMISSIONS)
 
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
@@ -172,6 +218,10 @@ export default function useMainStore() {
     addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
+  const assignProductClient = (id: string, clientId: string) => {
+    setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
+  }
+
   const updateProductImage = (id: string, imageUrl: string) => {
     const p = products.find((x) => x.id === id)
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl } : x)))
@@ -192,18 +242,10 @@ export default function useMainStore() {
     clientId: string,
     doc: { id: string; name: string; url: string; date: string },
   ) => {
-    const c = clients.find((x) => x.id === clientId)
     setClients((prev) =>
-      prev.map((x) =>
-        x.id === clientId
-          ? {
-              ...x,
-              documents: [...(x.documents || []), doc],
-            }
-          : x,
-      ),
+      prev.map((x) => (x.id === clientId ? { ...x, documents: [...(x.documents || []), doc] } : x)),
     )
-    addLog('Nuevo Documento', `${doc.name} (Cliente: ${c?.name})`)
+    addLog('Nuevo Documento', `${doc.name} (Cliente ID: ${clientId})`)
   }
 
   const addInvoice = (invoice: Invoice) => {
@@ -217,16 +259,28 @@ export default function useMainStore() {
     addLog('Cambio Estado Factura', `${i?.invoiceNumber} -> ${status}`)
   }
 
+  const updateRolePermission = (role: UserRole, module: ModuleId, value: boolean) => {
+    setPermissions((prev) => ({ ...prev, [role]: { ...prev[role], [module]: value } }))
+    addLog('Actualización Permisos', `${role} - ${module}: ${value}`)
+  }
+
   return {
     currentUser,
     currentRole,
     setCurrentRole,
+    companyLogo,
+    setCompanyLogo,
+    userAvatar,
+    setUserAvatar,
+    permissions,
+    updateRolePermission,
     products,
     clients,
     invoices,
     auditLogs,
     updateProductStock,
     updateProductStatus,
+    assignProductClient,
     updateProductImage,
     addProduct,
     addClient,

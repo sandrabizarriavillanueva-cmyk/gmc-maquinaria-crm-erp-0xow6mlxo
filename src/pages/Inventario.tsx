@@ -23,24 +23,15 @@ import { InventarioAddModal } from '@/components/InventarioAddModal'
 import { InventarioImportModal } from '@/components/InventarioImportModal'
 import { InventarioImageModal } from '@/components/InventarioImageModal'
 import { EquipmentStatus } from '@/types'
-import { Search, ShieldAlert } from 'lucide-react'
+import { Search } from 'lucide-react'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 export default function Inventario() {
-  const { products, updateProductStock, updateProductStatus, currentRole } = useStore()
+  const { products, updateProductStock, updateProductStatus, currentRole, permissions } = useStore()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todas')
 
-  if (currentRole === 'Vendedor') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <ShieldAlert className="w-16 h-16 text-slate-300" />
-        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
-        <p className="text-slate-400">
-          El módulo de inventario está restringido a Técnicos y Administradores.
-        </p>
-      </div>
-    )
-  }
+  if (!permissions[currentRole].inventario) return <RestrictedAccess />
 
   const filtered = products.filter((p) => {
     const matchesSearch =

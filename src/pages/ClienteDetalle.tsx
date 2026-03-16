@@ -13,10 +13,14 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Phone, Mail, ArrowLeft, Building2, MapPin, Upload, FileText } from 'lucide-react'
 import { formatCLP, getInvoiceBadgeClass } from '@/lib/format'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
+import { printInvoice } from '@/lib/pdf'
 
 export default function ClienteDetalle() {
   const { id } = useParams()
-  const { clients, invoices, addClientDocument } = useStore()
+  const { clients, invoices, addClientDocument, currentRole, permissions, companyLogo } = useStore()
+
+  if (!permissions[currentRole].clientes) return <RestrictedAccess />
 
   const client = clients.find((c) => c.id === id)
   if (!client) return <div className="p-8 text-center text-xl font-bold">Cliente no encontrado</div>
@@ -162,12 +166,13 @@ export default function ClienteDetalle() {
                       <TableHead>Descripción</TableHead>
                       <TableHead>Monto Total</TableHead>
                       <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acción</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {clientInvoices.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-slate-500 py-4">
+                        <TableCell colSpan={5} className="text-center text-slate-500 py-4">
                           Sin operaciones registradas
                         </TableCell>
                       </TableRow>
@@ -183,6 +188,16 @@ export default function ClienteDetalle() {
                           <Badge variant="outline" className={getInvoiceBadgeClass(inv.status)}>
                             {inv.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => printInvoice(inv, client, companyLogo)}
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          >
+                            PDF
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

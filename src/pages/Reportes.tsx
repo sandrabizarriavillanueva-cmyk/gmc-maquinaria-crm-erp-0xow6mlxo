@@ -8,7 +8,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart'
-import { ShieldAlert } from 'lucide-react'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 const COLORS = [
   'hsl(var(--chart-1))',
@@ -19,19 +19,10 @@ const COLORS = [
 ]
 
 export default function Reportes() {
-  const { currentRole, invoices, products } = useStore()
+  const { currentRole, permissions, invoices, products } = useStore()
 
-  if (currentRole !== 'Administrador') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <ShieldAlert className="w-16 h-16 text-slate-300" />
-        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
-        <p className="text-slate-400">Este módulo es exclusivo para Administradores.</p>
-      </div>
-    )
-  }
+  if (!permissions[currentRole].reportes) return <RestrictedAccess />
 
-  // Simulate historical data + current month
   const currentTotal = invoices.reduce((acc, i) => acc + i.amount, 0)
   const salesData = [
     { name: 'Julio', total: currentTotal * 0.7 },

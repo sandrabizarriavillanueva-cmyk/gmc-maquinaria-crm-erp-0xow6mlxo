@@ -19,25 +19,18 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import { ShieldAlert, FileText, CheckCircle2 } from 'lucide-react'
+import { FileText, CheckCircle2 } from 'lucide-react'
 import { printInvoice } from '@/lib/pdf'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 export default function Facturacion() {
-  const { invoices, clients, updateInvoiceStatus, currentRole } = useStore()
+  const { invoices, clients, updateInvoiceStatus, currentRole, permissions, companyLogo } =
+    useStore()
   const [filter, setFilter] = useState('Todas')
 
-  if (currentRole === 'Técnico') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <ShieldAlert className="w-16 h-16 text-slate-300" />
-        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
-        <p className="text-slate-400">El módulo de facturación es confidencial.</p>
-      </div>
-    )
-  }
+  if (!permissions[currentRole].facturacion) return <RestrictedAccess />
 
   const getClientName = (id: string) => clients.find((c) => c.id === id)?.name || 'Desconocido'
-
   const filtered = invoices.filter((i) => filter === 'Todas' || i.status === filter)
 
   return (
@@ -100,7 +93,7 @@ export default function Facturacion() {
                       className="border-slate-300 text-slate-600 hover:text-slate-900"
                       onClick={() => {
                         const c = clients.find((x) => x.id === inv.clientId)
-                        if (c) printInvoice(inv, c)
+                        if (c) printInvoice(inv, c, companyLogo)
                       }}
                     >
                       <FileText className="w-4 h-4 mr-1.5" /> PDF
@@ -151,7 +144,7 @@ export default function Facturacion() {
                   className="flex-1 border-slate-300"
                   onClick={() => {
                     const c = clients.find((x) => x.id === inv.clientId)
-                    if (c) printInvoice(inv, c)
+                    if (c) printInvoice(inv, c, companyLogo)
                   }}
                 >
                   <FileText className="w-4 h-4 mr-2" /> PDF

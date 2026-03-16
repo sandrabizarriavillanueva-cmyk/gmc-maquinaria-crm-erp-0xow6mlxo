@@ -14,23 +14,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClienteAddModal } from '@/components/ClienteAddModal'
 import { ClienteImportModal } from '@/components/ClienteImportModal'
-import { Search, MapPin, ShieldAlert } from 'lucide-react'
+import { Search, MapPin } from 'lucide-react'
+import { RestrictedAccess } from '@/components/RestrictedAccess'
 
 export default function Clientes() {
-  const { clients, currentRole } = useStore()
+  const { clients, currentRole, permissions } = useStore()
   const [search, setSearch] = useState('')
 
-  if (currentRole === 'Técnico') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <ShieldAlert className="w-16 h-16 text-slate-300" />
-        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
-        <p className="text-slate-400">
-          El módulo de clientes está restringido a Vendedores y Administradores.
-        </p>
-      </div>
-    )
-  }
+  if (!permissions[currentRole].clientes) return <RestrictedAccess />
 
   const filtered = clients.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.rut.includes(search),
