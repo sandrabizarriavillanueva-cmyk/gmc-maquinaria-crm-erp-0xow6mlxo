@@ -1,0 +1,163 @@
+import { useState } from 'react'
+import { useStore } from '@/context/MainContext'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { formatCLP, getEquipmentBadgeClass } from '@/lib/format'
+import { InventarioAddModal } from '@/components/InventarioAddModal'
+import { EquipmentStatus } from '@/types'
+import { Search } from 'lucide-react'
+
+export default function Inventario() {
+  const { products, updateProductStock, updateProductStatus } = useStore()
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('Todas')
+
+  const filtered = products.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku.toLowerCase().includes(search.toLowerCase())
+    const matchesCat = category === 'Todas' || p.category === category
+    return matchesSearch && matchesCat
+  })
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Gestor de Stock</h1>
+          <p className="text-slate-500">Administra los equipos y repuestos disponibles.</p>
+        </div>
+        <InventarioAddModal />
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por SKU o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-11 text-base"
+          />
+        </div>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-full md:w-56 h-11">
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todas">Todas las categorías</SelectItem>
+            <SelectItem value="Compresor">Compresor</SelectItem>
+            <SelectItem value="Secador">Secador</SelectItem>
+            <SelectItem value="Chiller">Chiller</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden">
+        <Table>
+          <TableHeader className="bg-slate-50">
+            <TableRow>
+              <TableHead>SKU</TableHead>
+              <TableHead>Descripción</TableHead>
+              <TableHead>Marca</TableHead>
+              <TableHead>Stock Actual</TableHead>
+              <TableHead>Estado Equipo</TableHead>
+              <TableHead className="text-right">Precio Neto</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell className="font-semibold">{p.sku}</TableCell>
+                <TableCell>{p.name}</TableCell>
+                <TableCell>{p.brand}</TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    defaultValue={p.stock}
+                    className="w-24 h-9"
+                    onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={getEquipmentBadgeClass(p.status)}>
+                      {p.status}
+                    </Badge>
+                    <Select
+                      defaultValue={p.status}
+                      onValueChange={(v) => updateProductStatus(p.id, v as EquipmentStatus)}
+                    >
+                      <SelectTrigger className="w-8 h-8 p-0 border-0 shadow-none">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Disponible">Disponible</SelectItem>
+                        <SelectItem value="Arrendado">Arrendado</SelectItem>
+                        <SelectItem value="En Mantención">En Mantención</SelectItem>
+                        <SelectItem value="Inactivo">Inactivo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-medium">{formatCLP(p.price)}</TableCell>
+              </TableRow>
+            ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  No se encontraron equipos.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {filtered.map((p) => (
+          <Card key={p.id} className="shadow-subtle border-slate-200">
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div className="font-bold text-lg leading-tight">{p.name}</div>
+                <Badge variant="outline" className={getEquipmentBadgeClass(p.status)}>
+                  {p.status}
+                </Badge>
+              </div>
+              <div className="text-sm text-slate-500 font-medium">
+                SKU: {p.sku} • {p.brand}
+              </div>
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg mt-2">
+                <span className="font-semibold text-slate-700">Stock Físico:</span>
+                <Input
+                  type="number"
+                  defaultValue={p.stock}
+                  className="w-24 h-10 text-center font-bold"
+                  onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
