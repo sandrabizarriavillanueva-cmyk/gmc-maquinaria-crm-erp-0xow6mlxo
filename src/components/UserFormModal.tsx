@@ -66,10 +66,10 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !email || (!user && !password)) {
+    if (!name || !email) {
       return toast({
         title: 'Campos incompletos',
-        description: 'Por favor, completa todos los campos requeridos.',
+        description: 'Por favor, completa al menos el nombre y correo.',
         variant: 'destructive',
       })
     }
@@ -78,14 +78,14 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     try {
       const payload: any = { name, email, role }
 
-      // Avoid sending base64 payloads to database to prevent 400 validation errors on file fields
       if (preview && !preview.startsWith('data:')) {
         payload.avatarUrl = preview
       }
 
+      // Try sending with password first
       if (password && password.trim() !== '') {
         payload.password = password
-        payload.passwordConfirm = password // PocketBase default for Auth collections
+        payload.passwordConfirm = password
       }
 
       if (user) {
@@ -103,12 +103,11 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       }
       onOpenChange(false)
     } catch (err: any) {
-      // Fallback: If it's a Base collection, it rejects the passwordConfirm field
-      if (err.message && err.message.includes('passwordConfirm')) {
+      // Fallback: If it's a Base collection, it completely rejects the password and passwordConfirm fields
+      if (err.message && (err.message.includes('400') || err.message.includes('password'))) {
         try {
           const fallbackPayload: any = { name, email, role }
           if (preview && !preview.startsWith('data:')) fallbackPayload.avatarUrl = preview
-          if (password && password.trim() !== '') fallbackPayload.password = password
 
           if (user) {
             await updateUser(user.id, fallbackPayload)
@@ -116,8 +115,8 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             await addUser(fallbackPayload)
           }
           toast({
-            title: 'Colaborador guardado',
-            description: 'Guardado exitosamente sin confirmación de clave (modo Base).',
+            title: 'Colaborador guardado (Modo Base)',
+            description: 'Guardado exitosamente en la base de datos sin requerir contraseña.',
           })
           onOpenChange(false)
         } catch (fallbackErr: any) {
@@ -130,7 +129,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       } else {
         toast({
           title: 'Error de base de datos',
-          description: err.message || 'El servidor rechazó los datos. Verifica reglas y permisos.',
+          description: err.message || 'Error al comunicar con la colección collaborators.',
           variant: 'destructive',
         })
       }
@@ -192,8 +191,9 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             <Label>Contraseña</Label>
             <Input
               type="password"
-              required={!user}
-              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Mínimo 8 caracteres'}
+              placeholder={
+                user ? 'Dejar en blanco para mantener la actual' : 'Opcional según schema'
+              }
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

@@ -5,12 +5,14 @@ export interface Product {
   id: string
   sku: string
   name: string
+  description?: string
   brand: string
   category: string
   status: EquipmentStatus
   stock: number
   minStock: number
   price: number
+  cost?: number
   hp?: number
   bar?: number
   specs?: string

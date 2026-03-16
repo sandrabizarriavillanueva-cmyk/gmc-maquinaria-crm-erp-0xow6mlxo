@@ -34,25 +34,25 @@ export function InventarioImportModal() {
   const downloadTemplate = () => {
     const headers = [
       'SKU',
-      'Marca',
-      'Nombre del Producto',
-      'Categoria',
-      'Especificaciones Tecnicas',
-      'Precio Unitario',
-      'Stock Actual',
-      'Stock Minimo',
-      'Estado del Equipo',
+      'Brand',
+      'Description',
+      'Category',
+      'Specs',
+      'Price',
+      'Cost',
+      'Stock',
+      'Status',
     ]
     const row = [
-      'COMP-001',
+      'SAV-1000',
       'Metalplan',
-      'Compresor de Aire',
-      'Compresor',
-      '10HP 10 Bar',
-      '1500000',
-      '5',
-      '2',
-      'Disponible',
+      'Acumulador de Aire Vertical',
+      'Equipo',
+      '1.000 litros',
+      '2980000',
+      '0',
+      '1',
+      'disponible',
     ]
     const csvContent = `${headers.join(';')}\n${row.join(';')}`
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -67,7 +67,7 @@ export function InventarioImportModal() {
 
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       setImportErrors([
-        'Por favor, convierte tu archivo Excel a formato "CSV (delimitado por comas o punto y coma)" antes de subirlo para asegurar una correcta importación.',
+        'Por favor, convierte tu archivo Excel a formato "CSV (delimitado por comas o punto y coma)" antes de subirlo.',
       ])
       return
     }
@@ -86,16 +86,14 @@ export function InventarioImportModal() {
         return
       }
 
-      let startIndex = 0
       const firstRowStr = rawData[0].join('').toLowerCase()
       const hasHeaders =
-        firstRowStr.includes('sku') &&
-        (firstRowStr.includes('nombre') || firstRowStr.includes('descripc'))
+        firstRowStr.includes('sku') ||
+        firstRowStr.includes('marca') ||
+        firstRowStr.includes('descripc') ||
+        firstRowStr.includes('precio')
 
-      if (hasHeaders) {
-        startIndex = 1
-      }
-
+      const startIndex = hasHeaders ? 1 : 0
       const headers = hasHeaders
         ? rawData[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
         : []
@@ -106,83 +104,65 @@ export function InventarioImportModal() {
 
       for (let i = startIndex; i < rawData.length; i++) {
         const row = rawData[i]
-        if (row.length === 0 || (row.length === 1 && !row[0])) continue
+        if (row.length < 2) continue
 
         const rowNum = i + 1
-        let sku, brand, name, rawCategory, specs, rawPrice, rawStock, rawMinStock, rawStatus
 
-        if (hasHeaders) {
-          const getCol = (names: string[]) => {
+        const getVal = (names: string[], fallbackIdx: number) => {
+          if (hasHeaders) {
             for (let j = 0; j < headers.length; j++) {
-              if (names.some((n) => headers[j] === n.toLowerCase().replace(/[^a-z0-9]/g, ''))) {
-                return row[j]
-              }
+              if (names.some((n) => headers[j].includes(n))) return row[j]
             }
-            return undefined
           }
-          sku = getCol(['skucodigo', 'sku', 'codigo'])
-          brand = getCol(['marca']) || 'Genérica'
-          name = getCol(['nombredelproducto', 'nombre', 'producto', 'descripcion'])
-          rawCategory = getCol(['categoria', 'tipo']) || 'Repuesto'
-          specs = getCol(['especificacionestecnicas', 'especificaciones', 'detalles']) || ''
-          rawPrice = getCol(['preciounitario', 'precio', 'valor', 'neto']) || '0'
-          rawStock = getCol(['stockactual', 'stock', 'cantidad']) || '0'
-          rawMinStock = getCol(['stockminimo', 'minimo']) || '0'
-          rawStatus = getCol(['estadodelequipo', 'estado']) || 'Disponible'
-        } else {
-          // Expected user structure without headers:
-          // SKU;Brand;Description;Category;Specs;Price;SecondaryPrice;Stock;Status
-          sku = row[0]
-          brand = row[1] || 'Genérica'
-          name = row[2]
-          rawCategory = row[3] || 'Repuesto'
-          specs = row[4] || ''
-          rawPrice = row[5] || '0'
-          rawStock = row[7] || '1'
-          rawStatus = row[8] || 'Disponible'
-          rawMinStock = '0'
+          return row[fallbackIdx]
         }
 
-        if (!sku || !name) {
+        const sku = getVal(['sku', 'codigo'], 0)
+        const brand = getVal(['marca', 'brand'], 1) || 'Genérica'
+        const name = getVal(['descrip', 'nombre', 'producto'], 2) || 'Equipo Genérico'
+        const category = getVal(['categoria', 'tipo'], 3) || 'Repuesto'
+        const specs = getVal(['especificacion', 'detalle', 'specs'], 4) || ''
+        const rawPrice = getVal(['precio', 'price', 'valor'], 5) || '0'
+        const rawCost = getVal(['costo', 'cost'], 6) || '0'
+        const rawStock = getVal(['stock', 'cantidad'], 7) || '1'
+        const rawStatus = getVal(['estado', 'status'], 8) || 'Disponible'
+
+        if (!sku) {
           errors++
-          errorDetails.push(`Fila ${rowNum}: Faltan datos obligatorios (SKU o Nombre).`)
+          errorDetails.push(`Fila ${rowNum}: Falta el código SKU.`)
           continue
         }
 
         const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
+        const cost = parseInt(String(rawCost).replace(/[^0-9]/g, ''), 10) || 0
         const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 1
-        const minStock = parseInt(String(rawMinStock).replace(/[^0-9-]/g, ''), 10) || 0
 
         let status: EquipmentStatus = 'Disponible'
         const lowerStatus = String(rawStatus).toLowerCase()
-        if (lowerStatus.includes('inactivo')) status = 'Inactivo'
+        if (lowerStatus.includes('inactiv') || lowerStatus.includes('baja')) status = 'Inactivo'
         else if (lowerStatus.includes('mantenci') || lowerStatus.includes('reparaci'))
           status = 'En Mantención'
-        else if (lowerStatus.includes('arrendado') || lowerStatus.includes('locaci'))
+        else if (lowerStatus.includes('arrend') || lowerStatus.includes('locaci'))
           status = 'Arrendado'
-
-        const category = String(rawCategory).trim() || 'Repuesto'
 
         try {
           await addProduct({
             sku: String(sku).trim(),
-            name: String(name).trim(),
             brand: String(brand).trim(),
-            category,
-            price,
-            stock,
-            minStock,
-            status,
+            name: String(name).trim(),
+            description: String(name).trim(),
+            category: String(category).trim(),
             specs: String(specs).trim(),
+            price,
+            cost,
+            stock,
+            minStock: 0,
+            status,
           })
           imported++
         } catch (e: any) {
           errors++
-          if (e.message?.includes('permisos') || e.message?.includes('403')) {
-            errorDetails.push(`Fila ${rowNum} (${sku}): Error de permisos (API Rules).`)
-          } else {
-            errorDetails.push(`Fila ${rowNum} (${sku}): Falló al guardar en BD.`)
-          }
+          errorDetails.push(`Fila ${rowNum} (${sku}): ${e.message}`)
         }
       }
 
