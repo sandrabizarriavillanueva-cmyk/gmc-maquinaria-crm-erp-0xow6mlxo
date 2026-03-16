@@ -18,8 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Upload } from 'lucide-react'
+import { Upload, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 interface Props {
@@ -36,6 +35,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('Técnico')
   const [preview, setPreview] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -64,7 +64,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email || (!user && !password)) {
       return toast({
@@ -74,27 +74,37 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       })
     }
 
-    if (user) {
-      updateUser(user.id, { name, email, password, role, avatarUrl: preview })
+    setIsLoading(true)
+    try {
+      if (user) {
+        await updateUser(user.id, { name, email, password, role, avatarUrl: preview })
+        toast({
+          title: 'Usuario actualizado',
+          description: 'Los cambios se guardaron correctamente.',
+        })
+      } else {
+        await addUser({
+          name,
+          email,
+          password,
+          role,
+          avatarUrl: preview,
+        })
+        toast({
+          title: 'Usuario creado',
+          description: 'El nuevo colaborador fue añadido al sistema.',
+        })
+      }
+      onOpenChange(false)
+    } catch (err) {
       toast({
-        title: 'Usuario actualizado',
-        description: 'Los cambios se guardaron correctamente.',
+        title: 'Error de base de datos',
+        description: 'Hubo un problema al guardar los datos en el servidor.',
+        variant: 'destructive',
       })
-    } else {
-      addUser({
-        id: Math.random().toString(36).substring(7),
-        name,
-        email,
-        password,
-        role,
-        avatarUrl: preview,
-      })
-      toast({
-        title: 'Usuario creado',
-        description: 'El nuevo colaborador fue añadido al sistema.',
-      })
+    } finally {
+      setIsLoading(false)
     }
-    onOpenChange(false)
   }
 
   return (
@@ -175,10 +185,12 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="border-slate-300"
+              disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button type="submit" className="bg-slate-800 hover:bg-slate-700">
+            <Button type="submit" className="bg-slate-800 hover:bg-slate-700" disabled={isLoading}>
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {user ? 'Guardar Cambios' : 'Crear Usuario'}
             </Button>
           </div>

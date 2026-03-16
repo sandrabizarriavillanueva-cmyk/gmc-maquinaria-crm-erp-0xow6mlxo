@@ -25,6 +25,7 @@ import { InventarioImageModal } from '@/components/InventarioImageModal'
 import { EquipmentStatus } from '@/types'
 import { Search } from 'lucide-react'
 import { RestrictedAccess } from '@/components/RestrictedAccess'
+import { toast } from '@/hooks/use-toast'
 
 export default function Inventario() {
   const { products, updateProductStock, updateProductStatus, currentRole, permissions } = useStore()
@@ -112,7 +113,20 @@ export default function Inventario() {
                     type="number"
                     defaultValue={p.stock}
                     className="w-24 h-9 font-medium"
-                    onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
+                    onBlur={async (e) => {
+                      const val = Number(e.target.value)
+                      if (val === p.stock) return
+                      try {
+                        await updateProductStock(p.id, val)
+                        toast({ title: 'Stock actualizado' })
+                      } catch (err) {
+                        toast({
+                          title: 'Error de conexión',
+                          description: 'No se pudo actualizar el stock en la base de datos.',
+                          variant: 'destructive',
+                        })
+                      }
+                    }}
                   />
                 </TableCell>
                 <TableCell>
@@ -122,7 +136,18 @@ export default function Inventario() {
                     </Badge>
                     <Select
                       defaultValue={p.status}
-                      onValueChange={(v) => updateProductStatus(p.id, v as EquipmentStatus)}
+                      onValueChange={async (v) => {
+                        try {
+                          await updateProductStatus(p.id, v as EquipmentStatus)
+                          toast({ title: 'Estado actualizado' })
+                        } catch (err) {
+                          toast({
+                            title: 'Error',
+                            description: 'No se pudo actualizar el estado.',
+                            variant: 'destructive',
+                          })
+                        }
+                      }}
                     >
                       <SelectTrigger className="w-8 h-8 p-0 border-0 shadow-none bg-slate-50">
                         <SelectValue />
@@ -176,7 +201,20 @@ export default function Inventario() {
                   type="number"
                   defaultValue={p.stock}
                   className="w-24 h-10 text-center font-bold bg-white"
-                  onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
+                  onBlur={async (e) => {
+                    const val = Number(e.target.value)
+                    if (val === p.stock) return
+                    try {
+                      await updateProductStock(p.id, val)
+                      toast({ title: 'Stock actualizado' })
+                    } catch (err) {
+                      toast({
+                        title: 'Error',
+                        description: 'No se pudo actualizar el stock.',
+                        variant: 'destructive',
+                      })
+                    }
+                  }}
                 />
               </div>
             </CardContent>

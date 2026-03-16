@@ -27,6 +27,7 @@ import {
 import { UserFormModal } from '@/components/UserFormModal'
 import { RestrictedAccess } from '@/components/RestrictedAccess'
 import { Search, UserPlus, Pencil, Trash2 } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 export default function Usuarios() {
   const { users, deleteUser, currentRole, permissions } = useStore()
@@ -54,9 +55,18 @@ export default function Usuarios() {
     setFormOpen(true)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (userToDelete) {
-      deleteUser(userToDelete.id)
+      try {
+        await deleteUser(userToDelete.id)
+        toast({ title: 'Usuario eliminado' })
+      } catch (err) {
+        toast({
+          title: 'Error de base de datos',
+          description: 'No se pudo eliminar el usuario.',
+          variant: 'destructive',
+        })
+      }
       setUserToDelete(null)
     }
   }

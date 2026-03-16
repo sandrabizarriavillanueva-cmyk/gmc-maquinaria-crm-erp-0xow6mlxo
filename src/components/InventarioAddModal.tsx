@@ -18,11 +18,12 @@ import {
 } from '@/components/ui/select'
 import { useStore } from '@/context/MainContext'
 import { toast } from '@/hooks/use-toast'
-import { Plus } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 
 export function InventarioAddModal() {
   const { addProduct } = useStore()
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
@@ -32,7 +33,7 @@ export function InventarioAddModal() {
   const [stock, setStock] = useState(1)
   const [minStock, setMinStock] = useState(1)
 
-  const submit = () => {
+  const submit = async () => {
     if (!sku || !name || !brand || price <= 0) {
       return toast({
         title: 'Error',
@@ -41,19 +42,29 @@ export function InventarioAddModal() {
       })
     }
 
-    addProduct({
-      id: Math.random().toString(),
-      sku,
-      name,
-      brand,
-      category,
-      price,
-      stock,
-      minStock,
-      status: 'Disponible',
-    })
-    setOpen(false)
-    toast({ title: 'Equipo registrado', description: `${sku} ha sido añadido al inventario.` })
+    setIsLoading(true)
+    try {
+      await addProduct({
+        sku,
+        name,
+        brand,
+        category,
+        price,
+        stock,
+        minStock,
+        status: 'Disponible',
+      })
+      setOpen(false)
+      toast({ title: 'Equipo registrado', description: `${sku} ha sido añadido al inventario.` })
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo guardar el equipo en la base de datos.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -138,8 +149,12 @@ export function InventarioAddModal() {
             />
           </div>
         </div>
-        <Button onClick={submit} className="w-full h-11 bg-slate-800 hover:bg-slate-700">
-          Guardar en Inventario
+        <Button
+          onClick={submit}
+          disabled={isLoading}
+          className="w-full h-11 bg-slate-800 hover:bg-slate-700"
+        >
+          {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Guardar en Inventario'}
         </Button>
       </DialogContent>
     </Dialog>

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { useStore } from '@/context/MainContext'
 import { Image as ImageIcon } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 export function InventarioImageModal({
   productId,
@@ -23,9 +24,18 @@ export function InventarioImageModal({
     const file = e.target.files?.[0]
     if (file) {
       const r = new FileReader()
-      r.onloadend = () => {
-        updateProductImage(productId, r.result as string)
-        setOpen(false)
+      r.onloadend = async () => {
+        try {
+          await updateProductImage(productId, r.result as string)
+          setOpen(false)
+          toast({ title: 'Imagen guardada correctamente' })
+        } catch (err) {
+          toast({
+            title: 'Error al subir imagen',
+            description: 'No se pudo guardar la fotografía en la base de datos.',
+            variant: 'destructive',
+          })
+        }
       }
       r.readAsDataURL(file)
     }

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { pb } from '@/lib/api'
 import {
   Product,
   Client,
@@ -218,11 +219,32 @@ export default function useMainStore() {
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<RolePermissions>(DEFAULT_PERMISSIONS)
 
-  const [users, setUsers] = useState<User[]>(MOCK_USERS)
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
+  const [users, setUsers] = useState<User[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
   const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_LOGS)
+
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        const dbUsers = await pb.get('collaborators')
+        setUsers(dbUsers.length > 0 ? dbUsers : MOCK_USERS)
+      } catch (err) {
+        console.warn('Fallback to mock users', err)
+        setUsers(MOCK_USERS)
+      }
+
+      try {
+        const dbProducts = await pb.get('inventory')
+        setProducts(dbProducts.length > 0 ? dbProducts : MOCK_PRODUCTS)
+      } catch (err) {
+        console.warn('Fallback to mock products', err)
+        setProducts(MOCK_PRODUCTS)
+      }
+    }
+    initData()
+  }, [])
 
   const addLog = (action: string, target: string) => {
     setAuditLogs((prev) => [
@@ -238,47 +260,55 @@ export default function useMainStore() {
     ])
   }
 
-  const addUser = (user: User) => {
-    setUsers((prev) => [user, ...prev])
+  const addUser = async (user: Omit<User, 'id'>) => {
+    const created = await pb.create('collaborators', user)
+    setUsers((prev) => [created, ...prev])
     addLog('Nuevo Colaborador', user.name)
   }
 
-  const updateUser = (id: string, data: Partial<User>) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
+  const updateUser = async (id: string, data: Partial<User>) => {
+    const updated = await pb.update('collaborators', id, data)
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
     addLog('Actualización Colaborador', data.name || id)
   }
 
-  const deleteUser = (id: string) => {
+  const deleteUser = async (id: string) => {
     const u = users.find((x) => x.id === id)
+    await pb.delete('collaborators', id)
     setUsers((prev) => prev.filter((x) => x.id !== id))
     addLog('Eliminación Colaborador', u?.name || id)
   }
 
-  const updateProductStock = (id: string, newStock: number) => {
+  const addProduct = async (product: Omit<Product, 'id'>) => {
+    const created = await pb.create('inventory', product)
+    setProducts((prev) => [created, ...prev])
+    addLog('Nuevo Equipo', product.name)
+  }
+
+  const updateProductStock = async (id: string, newStock: number) => {
     const p = products.find((x) => x.id === id)
+    await pb.update('inventory', id, { stock: newStock })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, stock: newStock } : x)))
     addLog('Cambio de Stock', `${p?.name} (Nuevo: ${newStock})`)
   }
 
-  const updateProductStatus = (id: string, newStatus: EquipmentStatus) => {
+  const updateProductStatus = async (id: string, newStatus: EquipmentStatus) => {
     const p = products.find((x) => x.id === id)
+    await pb.update('inventory', id, { status: newStatus })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, status: newStatus } : x)))
     addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
-  const assignProductClient = (id: string, clientId: string) => {
+  const assignProductClient = async (id: string, clientId: string) => {
+    await pb.update('inventory', id, { clientId })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
   }
 
-  const updateProductImage = (id: string, imageUrl: string) => {
+  const updateProductImage = async (id: string, imageUrl: string) => {
     const p = products.find((x) => x.id === id)
+    await pb.update('inventory', id, { imageUrl })
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl } : x)))
     addLog('Actualización de Imagen', p?.name || id)
-  }
-
-  const addProduct = (product: Product) => {
-    setProducts((prev) => [product, ...prev])
-    addLog('Nuevo Equipo', product.name)
   }
 
   const addClient = (client: Client) => {

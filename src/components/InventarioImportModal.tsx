@@ -11,13 +11,14 @@ import { Input } from '@/components/ui/input'
 import { useStore } from '@/context/MainContext'
 import { toast } from '@/hooks/use-toast'
 import { parseCSV } from '@/lib/csv'
-import { Upload, Download, FileUp } from 'lucide-react'
+import { Upload, Download, FileUp, Loader2 } from 'lucide-react'
 import { EquipmentStatus } from '@/types'
 
 export function InventarioImportModal() {
   const { addProduct } = useStore()
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const downloadTemplate = () => {
     const headers = [
@@ -52,13 +53,14 @@ export function InventarioImportModal() {
 
   const handleImport = async () => {
     if (!file) return
+    setIsLoading(true)
     const text = await file.text()
     const data = parseCSV(text)
 
     let imported = 0
     let errors = 0
 
-    data.forEach((row) => {
+    for (const row of data) {
       const sku = row['SKU_Código'] || row['SKU_Codigo'] || row['SKU']
       const brand = row['Marca']
       const name = row['Nombre del Producto'] || row['Nombre']
@@ -71,7 +73,7 @@ export function InventarioImportModal() {
 
       if (!sku || !name || !brand || !rawPrice) {
         errors++
-        return
+        continue
       }
 
       const price = parseInt(rawPrice.replace(/[^0-9]/g, ''), 10) || 0
@@ -93,34 +95,38 @@ export function InventarioImportModal() {
       ]
       const category = validCategories.includes(rawCategory) ? rawCategory : 'Repuesto'
 
-      addProduct({
-        id: Math.random().toString(),
-        sku,
-        name,
-        brand,
-        category,
-        price,
-        stock,
-        minStock,
-        status,
-        specs,
-      })
-      imported++
-    })
+      try {
+        await addProduct({
+          sku,
+          name,
+          brand,
+          category,
+          price,
+          stock,
+          minStock,
+          status,
+          specs,
+        })
+        imported++
+      } catch (e) {
+        errors++
+      }
+    }
 
+    setIsLoading(false)
     setOpen(false)
     setFile(null)
 
     if (imported > 0) {
       toast({
         title: 'Importación exitosa',
-        description: `${imported} productos importados correctamente.`,
+        description: `${imported} productos guardados en la base de datos.`,
       })
     }
     if (errors > 0) {
       toast({
         title: 'Errores en importación',
-        description: `${errors} filas omitidas por datos obligatorios faltantes.`,
+        description: `${errors} filas fallaron al subir o omitidas por datos faltantes.`,
         variant: 'destructive',
       })
     }
@@ -158,10 +164,15 @@ export function InventarioImportModal() {
         </div>
         <Button
           onClick={handleImport}
-          disabled={!file}
+          disabled={!file || isLoading}
           className="w-full h-11 bg-slate-800 hover:bg-slate-700 gap-2"
         >
-          <FileUp className="w-4 h-4" /> Procesar Importación
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileUp className="w-4 h-4" />
+          )}
+          {isLoading ? 'Procesando...' : 'Procesar Importación'}
         </Button>
       </DialogContent>
     </Dialog>
