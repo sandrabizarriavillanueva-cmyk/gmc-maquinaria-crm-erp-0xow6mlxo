@@ -13,15 +13,29 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/hooks/use-toast'
 import { formatCLP } from '@/lib/format'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ShieldAlert, FileText } from 'lucide-react'
+import { printInvoice } from '@/lib/pdf'
 
 export default function Ventas() {
-  const { clients, products, updateProductStock, updateProductStatus, addInvoice } = useStore()
+  const { clients, products, updateProductStock, updateProductStatus, addInvoice, currentRole } =
+    useStore()
 
   const [opType, setOpType] = useState('Venta')
   const [clientId, setClientId] = useState('')
   const [productId, setProductId] = useState('')
   const [qty, setQty] = useState(1)
+
+  if (currentRole === 'Técnico') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <ShieldAlert className="w-16 h-16 text-slate-300" />
+        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
+        <p className="text-slate-400">
+          El módulo de ventas está restringido a Vendedores y Administradores.
+        </p>
+      </div>
+    )
+  }
 
   const selProd = products.find((p) => p.id === productId)
   const net = (selProd?.price || 0) * qty
@@ -62,19 +76,49 @@ export default function Ventas() {
       description: `${opType} - ${selProd!.name} (x${qty})`,
     })
 
-    toast({ title: 'Éxito', description: 'Transacción completada y factura generada.' })
+    toast({
+      title: 'Éxito',
+      description: 'Transacción completada y factura generada en Cuentas por Cobrar.',
+    })
     setClientId('')
     setProductId('')
     setQty(1)
   }
 
+  const handlePrintQuote = () => {
+    if (!clientId || !productId) {
+      return toast({
+        title: 'Faltan datos',
+        description: 'Seleccione cliente y equipo para generar la cotización.',
+        variant: 'destructive',
+      })
+    }
+    const c = clients.find((x) => x.id === clientId)
+    if (c) {
+      printInvoice(
+        {
+          id: 'cot-temp',
+          invoiceNumber: `COT-${Math.floor(Math.random() * 10000)}`,
+          date: new Date().toLocaleDateString('es-CL'),
+          clientId: c.id,
+          amount: total,
+          status: 'Pendiente',
+          description: `Cotización: ${opType} de ${selProd!.name} (x${qty})`,
+        },
+        c,
+      )
+    }
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-800">
           Control de Ventas y Arriendos
         </h1>
-        <p className="text-slate-500">Registra una nueva transacción operativa.</p>
+        <p className="text-slate-500">
+          Genera cotizaciones y registra nuevas operaciones comerciales.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -144,12 +188,22 @@ export default function Ventas() {
                   />
                 </div>
               </div>
-              <Button
-                type="submit"
-                className="w-full h-14 text-base font-bold bg-orange-500 hover:bg-orange-600 gap-2"
-              >
-                <CheckCircle2 className="w-5 h-5" /> Confirmar Operación
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                <Button
+                  type="submit"
+                  className="flex-1 h-14 text-base font-bold bg-orange-500 hover:bg-orange-600 gap-2"
+                >
+                  <CheckCircle2 className="w-5 h-5" /> Confirmar Operación
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrintQuote}
+                  className="h-14 px-6 border-slate-300 gap-2"
+                >
+                  <FileText className="w-5 h-5" /> Cotización PDF
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -172,8 +226,8 @@ export default function Ventas() {
               <span className="font-bold font-mono text-3xl">{formatCLP(total)}</span>
             </div>
             {opType === 'Venta' && selProd && (
-              <div className="mt-6 p-4 bg-slate-700/50 rounded-lg text-sm text-center border border-slate-600">
-                Al confirmar, el stock del equipo se reducirá automáticamente.
+              <div className="mt-6 p-4 bg-slate-700/50 rounded-lg text-sm text-center border border-slate-600 text-slate-300">
+                Al confirmar, el stock del equipo se reducirá y la factura quedará como Pendiente.
               </div>
             )}
           </CardContent>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Product, Client, Invoice, EquipmentStatus } from '@/types'
+import { Product, Client, Invoice, EquipmentStatus, UserRole, AuditLog } from '@/types'
 
 const MOCK_PRODUCTS: Product[] = [
   {
@@ -118,39 +118,119 @@ const MOCK_INVOICES: Invoice[] = [
   },
 ]
 
+const MOCK_LOGS: AuditLog[] = [
+  {
+    id: '1',
+    date: new Date().toISOString(),
+    user: 'Juan Admin',
+    role: 'Administrador',
+    action: 'Inicio de Sistema',
+    target: 'App',
+  },
+  {
+    id: '2',
+    date: new Date(Date.now() - 3600000).toISOString(),
+    user: 'María Vendedor',
+    role: 'Vendedor',
+    action: 'Nueva Transacción',
+    target: 'Folio: F-1004',
+  },
+]
+
 export default function useMainStore() {
+  const [currentUser, setCurrentUser] = useState('Juan Admin')
+  const [currentRole, setCurrentRole] = useState<UserRole>('Administrador')
+
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
   const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_LOGS)
+
+  const addLog = (action: string, target: string) => {
+    setAuditLogs((prev) => [
+      {
+        id: Math.random().toString(),
+        date: new Date().toISOString(),
+        user: currentUser,
+        role: currentRole,
+        action,
+        target,
+      },
+      ...prev,
+    ])
+  }
 
   const updateProductStock = (id: string, newStock: number) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, stock: newStock } : p)))
+    const p = products.find((x) => x.id === id)
+    setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, stock: newStock } : x)))
+    addLog('Cambio de Stock', `${p?.name} (Nuevo: ${newStock})`)
   }
 
   const updateProductStatus = (id: string, newStatus: EquipmentStatus) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)))
+    const p = products.find((x) => x.id === id)
+    setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, status: newStatus } : x)))
+    addLog('Cambio de Estado', `${p?.name} -> ${newStatus}`)
   }
 
-  const addProduct = (product: Product) => setProducts((prev) => [product, ...prev])
+  const updateProductImage = (id: string, imageUrl: string) => {
+    const p = products.find((x) => x.id === id)
+    setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl } : x)))
+    addLog('Actualización de Imagen', p?.name || id)
+  }
 
-  const addClient = (client: Client) => setClients((prev) => [client, ...prev])
+  const addProduct = (product: Product) => {
+    setProducts((prev) => [product, ...prev])
+    addLog('Nuevo Equipo', product.name)
+  }
+
+  const addClient = (client: Client) => {
+    setClients((prev) => [client, ...prev])
+    addLog('Nuevo Cliente', client.name)
+  }
+
+  const addClientDocument = (
+    clientId: string,
+    doc: { id: string; name: string; url: string; date: string },
+  ) => {
+    const c = clients.find((x) => x.id === clientId)
+    setClients((prev) =>
+      prev.map((x) =>
+        x.id === clientId
+          ? {
+              ...x,
+              documents: [...(x.documents || []), doc],
+            }
+          : x,
+      ),
+    )
+    addLog('Nuevo Documento', `${doc.name} (Cliente: ${c?.name})`)
+  }
 
   const addInvoice = (invoice: Invoice) => {
     setInvoices((prev) => [invoice, ...prev])
+    addLog('Nueva Transacción', `Folio: ${invoice.invoiceNumber}`)
   }
 
   const updateInvoiceStatus = (id: string, status: 'Pendiente' | 'Pagada' | 'Vencida') => {
-    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)))
+    const i = invoices.find((x) => x.id === id)
+    setInvoices((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)))
+    addLog('Cambio Estado Factura', `${i?.invoiceNumber} -> ${status}`)
   }
 
   return {
+    currentUser,
+    currentRole,
+    setCurrentRole,
     products,
     clients,
     invoices,
+    auditLogs,
     updateProductStock,
     updateProductStatus,
+    updateProductImage,
     addProduct,
     addClient,
+    addClientDocument,
     addInvoice,
     updateInvoiceStatus,
   }

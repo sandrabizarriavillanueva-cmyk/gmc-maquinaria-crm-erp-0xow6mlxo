@@ -21,13 +21,26 @@ import { Card, CardContent } from '@/components/ui/card'
 import { formatCLP, getEquipmentBadgeClass } from '@/lib/format'
 import { InventarioAddModal } from '@/components/InventarioAddModal'
 import { InventarioImportModal } from '@/components/InventarioImportModal'
+import { InventarioImageModal } from '@/components/InventarioImageModal'
 import { EquipmentStatus } from '@/types'
-import { Search } from 'lucide-react'
+import { Search, ShieldAlert } from 'lucide-react'
 
 export default function Inventario() {
-  const { products, updateProductStock, updateProductStatus } = useStore()
+  const { products, updateProductStock, updateProductStatus, currentRole } = useStore()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todas')
+
+  if (currentRole === 'Vendedor') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <ShieldAlert className="w-16 h-16 text-slate-300" />
+        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
+        <p className="text-slate-400">
+          El módulo de inventario está restringido a Técnicos y Administradores.
+        </p>
+      </div>
+    )
+  }
 
   const filtered = products.filter((p) => {
     const matchesSearch =
@@ -38,18 +51,21 @@ export default function Inventario() {
   })
 
   const availableCategories = Array.from(new Set(products.map((p) => p.category))).sort()
+  const isAdmin = currentRole === 'Administrador'
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Gestor de Stock</h1>
-          <p className="text-slate-500">Administra los equipos y repuestos disponibles.</p>
+          <p className="text-slate-500">Administra equipos, repuestos y documentación visual.</p>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <InventarioImportModal />
-          <InventarioAddModal />
-        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <InventarioImportModal />
+            <InventarioAddModal />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -77,30 +93,34 @@ export default function Inventario() {
         </Select>
       </div>
 
-      {/* Desktop Table */}
       <div className="hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>SKU</TableHead>
+              <TableHead>Equipo / SKU</TableHead>
               <TableHead>Descripción</TableHead>
               <TableHead>Marca</TableHead>
               <TableHead>Stock Actual</TableHead>
               <TableHead>Estado Equipo</TableHead>
-              <TableHead className="text-right">Precio Neto</TableHead>
+              {isAdmin && <TableHead className="text-right">Precio Neto</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((p) => (
               <TableRow key={p.id}>
-                <TableCell className="font-semibold">{p.sku}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <InventarioImageModal productId={p.id} imageUrl={p.imageUrl} />
+                    <span className="font-semibold text-slate-800">{p.sku}</span>
+                  </div>
+                </TableCell>
                 <TableCell>{p.name}</TableCell>
                 <TableCell>{p.brand}</TableCell>
                 <TableCell>
                   <Input
                     type="number"
                     defaultValue={p.stock}
-                    className="w-24 h-9"
+                    className="w-24 h-9 font-medium"
                     onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
                   />
                 </TableCell>
@@ -113,7 +133,7 @@ export default function Inventario() {
                       defaultValue={p.status}
                       onValueChange={(v) => updateProductStatus(p.id, v as EquipmentStatus)}
                     >
-                      <SelectTrigger className="w-8 h-8 p-0 border-0 shadow-none">
+                      <SelectTrigger className="w-8 h-8 p-0 border-0 shadow-none bg-slate-50">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -125,12 +145,14 @@ export default function Inventario() {
                     </Select>
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-medium">{formatCLP(p.price)}</TableCell>
+                {isAdmin && (
+                  <TableCell className="text-right font-medium">{formatCLP(p.price)}</TableCell>
+                )}
               </TableRow>
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-slate-500">
                   No se encontraron equipos.
                 </TableCell>
               </TableRow>
@@ -139,26 +161,30 @@ export default function Inventario() {
         </Table>
       </div>
 
-      {/* Mobile Cards */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {filtered.map((p) => (
           <Card key={p.id} className="shadow-subtle border-slate-200">
             <CardContent className="p-4 flex flex-col gap-3">
               <div className="flex justify-between items-start">
-                <div className="font-bold text-lg leading-tight">{p.name}</div>
+                <div className="flex items-center gap-3">
+                  <InventarioImageModal productId={p.id} imageUrl={p.imageUrl} />
+                  <div className="font-bold text-lg leading-tight">{p.name}</div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-500 font-medium">
+                  SKU: {p.sku} • {p.brand}
+                </span>
                 <Badge variant="outline" className={getEquipmentBadgeClass(p.status)}>
                   {p.status}
                 </Badge>
               </div>
-              <div className="text-sm text-slate-500 font-medium">
-                SKU: {p.sku} • {p.brand}
-              </div>
-              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg mt-2">
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg mt-2 border">
                 <span className="font-semibold text-slate-700">Stock Físico:</span>
                 <Input
                   type="number"
                   defaultValue={p.stock}
-                  className="w-24 h-10 text-center font-bold"
+                  className="w-24 h-10 text-center font-bold bg-white"
                   onBlur={(e) => updateProductStock(p.id, Number(e.target.value))}
                 />
               </div>

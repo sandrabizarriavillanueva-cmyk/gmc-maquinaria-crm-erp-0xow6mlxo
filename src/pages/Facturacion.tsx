@@ -19,10 +19,22 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
+import { ShieldAlert, FileText, CheckCircle2 } from 'lucide-react'
+import { printInvoice } from '@/lib/pdf'
 
 export default function Facturacion() {
-  const { invoices, clients, updateInvoiceStatus } = useStore()
+  const { invoices, clients, updateInvoiceStatus, currentRole } = useStore()
   const [filter, setFilter] = useState('Todas')
+
+  if (currentRole === 'Técnico') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <ShieldAlert className="w-16 h-16 text-slate-300" />
+        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
+        <p className="text-slate-400">El módulo de facturación es confidencial.</p>
+      </div>
+    )
+  }
 
   const getClientName = (id: string) => clients.find((c) => c.id === id)?.name || 'Desconocido'
 
@@ -33,7 +45,7 @@ export default function Facturacion() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Cuentas por Cobrar</h1>
-          <p className="text-slate-500">Gestión y control de pagos y facturación.</p>
+          <p className="text-slate-500">Gestión y control de pagos y generación de documentos.</p>
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-full md:w-48 h-11 border-orange-200">
@@ -48,16 +60,15 @@ export default function Facturacion() {
         </Select>
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden">
+      <div className="hidden lg:block rounded-xl border bg-white shadow-subtle overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead>Folio</TableHead>
-              <TableHead>Fecha Emisión</TableHead>
+              <TableHead>Emisión</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Concepto</TableHead>
-              <TableHead className="text-right">Monto Total</TableHead>
+              <TableHead className="text-right">Total CLP</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -72,7 +83,9 @@ export default function Facturacion() {
                 <TableCell className="font-medium text-slate-800">
                   {getClientName(inv.clientId)}
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate">{inv.description}</TableCell>
+                <TableCell className="max-w-[200px] truncate" title={inv.description}>
+                  {inv.description}
+                </TableCell>
                 <TableCell className="text-right font-bold">{formatCLP(inv.amount)}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={getInvoiceBadgeClass(inv.status)}>
@@ -80,15 +93,28 @@ export default function Facturacion() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  {inv.status !== 'Pagada' && (
+                  <div className="flex justify-end gap-2">
                     <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => updateInvoiceStatus(inv.id, 'Pagada')}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
+                      className="border-slate-300 text-slate-600 hover:text-slate-900"
+                      onClick={() => {
+                        const c = clients.find((x) => x.id === inv.clientId)
+                        if (c) printInvoice(inv, c)
+                      }}
                     >
-                      Marcar Pagada
+                      <FileText className="w-4 h-4 mr-1.5" /> PDF
                     </Button>
-                  )}
+                    {inv.status !== 'Pagada' && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateInvoiceStatus(inv.id, 'Pagada')}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" /> Pagada
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -103,8 +129,7 @@ export default function Facturacion() {
         </Table>
       </div>
 
-      {/* Mobile Cards */}
-      <div className="grid grid-cols-1 gap-4 md:hidden">
+      <div className="grid grid-cols-1 gap-4 lg:hidden">
         {filtered.map((inv) => (
           <Card key={inv.id} className="shadow-subtle border-slate-200">
             <CardContent className="p-5 flex flex-col gap-3">
@@ -120,14 +145,26 @@ export default function Facturacion() {
                 <span className="text-xs text-slate-500">{inv.date}</span>
                 <span className="font-bold text-xl">{formatCLP(inv.amount)}</span>
               </div>
-              {inv.status !== 'Pagada' && (
+              <div className="flex gap-2 mt-2">
                 <Button
-                  className="w-full h-11 bg-emerald-500 hover:bg-emerald-600 text-white mt-2"
-                  onClick={() => updateInvoiceStatus(inv.id, 'Pagada')}
+                  variant="outline"
+                  className="flex-1 border-slate-300"
+                  onClick={() => {
+                    const c = clients.find((x) => x.id === inv.clientId)
+                    if (c) printInvoice(inv, c)
+                  }}
                 >
-                  Marcar como Pagada
+                  <FileText className="w-4 h-4 mr-2" /> PDF
                 </Button>
-              )}
+                {inv.status !== 'Pagada' && (
+                  <Button
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                    onClick={() => updateInvoiceStatus(inv.id, 'Pagada')}
+                  >
+                    Marcar Pagada
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}

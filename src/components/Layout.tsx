@@ -1,8 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from './AppSidebar'
-import { Bell, UserCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { RoleSelector } from './RoleSelector'
+import { NotificationsDropdown } from './NotificationsDropdown'
 
 export default function Layout() {
   const location = useLocation()
@@ -19,17 +19,9 @@ export default function Layout() {
               Portal Operativo
             </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative hover:bg-slate-100">
-              <Bell className="w-5 h-5 text-slate-600" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-            </Button>
-            <Button
-              variant="ghost"
-              className="hidden sm:flex gap-2 font-medium text-slate-600 hover:text-slate-900"
-            >
-              <UserCircle className="w-6 h-6" /> Admin
-            </Button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationsDropdown />
+            <RoleSelector />
           </div>
         </header>
         <main className="flex-1 overflow-auto relative">

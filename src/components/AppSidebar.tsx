@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useStore } from '@/context/MainContext'
 import {
   Sidebar,
   SidebarContent,
@@ -9,18 +10,47 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from '@/components/ui/sidebar'
-import { LayoutDashboard, Package, Users, ShoppingCart, Receipt, ShieldAlert } from 'lucide-react'
-
-const items = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Inventario', url: '/inventario', icon: Package },
-  { title: 'Clientes', url: '/clientes', icon: Users },
-  { title: 'Control Ventas', url: '/ventas', icon: ShoppingCart },
-  { title: 'Facturación', url: '/facturacion', icon: Receipt },
-]
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  ShoppingCart,
+  Receipt,
+  ShieldAlert,
+  BarChart3,
+  ClipboardList,
+} from 'lucide-react'
 
 export function AppSidebar() {
   const location = useLocation()
+  const { currentRole } = useStore()
+
+  const allItems = [
+    {
+      title: 'Dashboard',
+      url: '/',
+      icon: LayoutDashboard,
+      roles: ['Administrador', 'Vendedor', 'Técnico'],
+    },
+    { title: 'Inventario', url: '/inventario', icon: Package, roles: ['Administrador', 'Técnico'] },
+    { title: 'Clientes', url: '/clientes', icon: Users, roles: ['Administrador', 'Vendedor'] },
+    {
+      title: 'Control Ventas',
+      url: '/ventas',
+      icon: ShoppingCart,
+      roles: ['Administrador', 'Vendedor'],
+    },
+    {
+      title: 'Facturación',
+      url: '/facturacion',
+      icon: Receipt,
+      roles: ['Administrador', 'Vendedor'],
+    },
+    { title: 'Reportes', url: '/reportes', icon: BarChart3, roles: ['Administrador'] },
+    { title: 'Auditoría', url: '/auditoria', icon: ClipboardList, roles: ['Administrador'] },
+  ]
+
+  const items = allItems.filter((item) => item.roles.includes(currentRole))
 
   return (
     <Sidebar className="border-r-0">
@@ -56,7 +86,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-6">
-        <div className="text-xs text-slate-500 font-medium">ERP v0.1 • Admin</div>
+        <div className="text-xs text-slate-500 font-medium">ERP v0.2 • {currentRole}</div>
       </SidebarFooter>
     </Sidebar>
   )

@@ -1,4 +1,5 @@
 export type EquipmentStatus = 'Disponible' | 'Arrendado' | 'En Mantención' | 'Inactivo'
+export type UserRole = 'Administrador' | 'Vendedor' | 'Técnico'
 
 export interface Product {
   id: string
@@ -13,6 +14,14 @@ export interface Product {
   hp?: number
   bar?: number
   specs?: string
+  imageUrl?: string
+}
+
+export interface Document {
+  id: string
+  name: string
+  url: string
+  date: string
 }
 
 export interface Client {
@@ -24,6 +33,7 @@ export interface Client {
   email: string
   contactName?: string
   industry?: string
+  documents?: Document[]
 }
 
 export interface Invoice {
@@ -34,4 +44,13 @@ export interface Invoice {
   amount: number
   status: 'Pendiente' | 'Pagada' | 'Vencida'
   description?: string
+}
+
+export interface AuditLog {
+  id: string
+  date: string
+  user: string
+  role: UserRole
+  action: string
+  target: string
 }

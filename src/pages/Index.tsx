@@ -15,12 +15,14 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 export default function Index() {
-  const { products, invoices, updateProductStock } = useStore()
+  const { products, invoices, updateProductStock, currentRole } = useStore()
 
   const ventasMes = invoices.reduce((acc, inv) => acc + inv.amount, 0)
   const alertasStock = products.filter((p) => p.stock < p.minStock)
   const pendientes = invoices.filter((i) => i.status !== 'Pagada')
   const enMantencion = products.filter((p) => p.status === 'En Mantención')
+
+  const isTecnico = currentRole === 'Técnico'
 
   return (
     <div className="space-y-8 pb-20 md:pb-0">
@@ -33,28 +35,33 @@ export default function Index() {
             Estado general de la compañía al día de hoy.
           </p>
         </div>
-        <Button
-          asChild
-          className="hidden md:flex bg-orange-500 hover:bg-orange-600 shadow-elevation h-11 gap-2 px-6"
-        >
-          <Link to="/ventas">
-            <ShoppingCart className="w-5 h-5" /> Registrar Operación
-          </Link>
-        </Button>
+        {!isTecnico && (
+          <Button
+            asChild
+            className="hidden md:flex bg-orange-500 hover:bg-orange-600 shadow-elevation h-11 gap-2 px-6"
+          >
+            <Link to="/ventas">
+              <ShoppingCart className="w-5 h-5" /> Registrar Operación
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="shadow-subtle border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
-              Ventas del Mes
-            </CardTitle>
-            <DollarSign className="w-5 h-5 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-slate-800">{formatCLP(ventasMes)}</div>
-          </CardContent>
-        </Card>
+        {!isTecnico && (
+          <Card className="shadow-subtle border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                Ventas del Mes
+              </CardTitle>
+              <DollarSign className="w-5 h-5 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black text-slate-800">{formatCLP(ventasMes)}</div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="shadow-subtle border-l-4 border-l-red-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
@@ -66,17 +73,21 @@ export default function Index() {
             <div className="text-3xl font-black text-slate-800">{alertasStock.length}</div>
           </CardContent>
         </Card>
-        <Card className="shadow-subtle border-l-4 border-l-yellow-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
-              Facturas Pendientes
-            </CardTitle>
-            <AlertTriangle className="w-5 h-5 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-slate-800">{pendientes.length}</div>
-          </CardContent>
-        </Card>
+
+        {!isTecnico && (
+          <Card className="shadow-subtle border-l-4 border-l-yellow-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                Facturas Pendientes
+              </CardTitle>
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black text-slate-800">{pendientes.length}</div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="shadow-subtle border-l-4 border-l-orange-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
@@ -137,7 +148,7 @@ export default function Index() {
                         className="border-orange-200 text-orange-700"
                         onClick={() => updateProductStock(p.id, p.stock + 5)}
                       >
-                        + Ingreso Rapido
+                        + Ingreso
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -173,18 +184,19 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Mobile FAB */}
-      <div className="fixed bottom-6 right-6 md:hidden z-50">
-        <Button
-          asChild
-          size="icon"
-          className="h-16 w-16 rounded-full bg-orange-500 hover:bg-orange-600 shadow-elevation"
-        >
-          <Link to="/ventas">
-            <ShoppingCart className="w-7 h-7 text-white" />
-          </Link>
-        </Button>
-      </div>
+      {!isTecnico && (
+        <div className="fixed bottom-6 right-6 md:hidden z-50">
+          <Button
+            asChild
+            size="icon"
+            className="h-16 w-16 rounded-full bg-orange-500 hover:bg-orange-600 shadow-elevation"
+          >
+            <Link to="/ventas">
+              <ShoppingCart className="w-7 h-7 text-white" />
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

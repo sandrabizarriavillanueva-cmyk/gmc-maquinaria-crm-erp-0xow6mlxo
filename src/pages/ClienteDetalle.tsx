@@ -11,12 +11,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Phone, Mail, ArrowLeft, Building2, MapPin } from 'lucide-react'
+import { Phone, Mail, ArrowLeft, Building2, MapPin, Upload, FileText } from 'lucide-react'
 import { formatCLP, getInvoiceBadgeClass } from '@/lib/format'
 
 export default function ClienteDetalle() {
   const { id } = useParams()
-  const { clients, invoices } = useStore()
+  const { clients, invoices, addClientDocument } = useStore()
 
   const client = clients.find((c) => c.id === id)
   if (!client) return <div className="p-8 text-center text-xl font-bold">Cliente no encontrado</div>
@@ -30,6 +30,18 @@ export default function ClienteDetalle() {
     .filter((i) => i.status !== 'Pagada')
     .reduce((acc, i) => acc + i.amount, 0)
 
+  const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      addClientDocument(client.id, {
+        id: Math.random().toString(),
+        name: file.name,
+        url: URL.createObjectURL(file), // Mock URL for viewing
+        date: new Date().toISOString().split('T')[0],
+      })
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <Button asChild variant="ghost" className="gap-2 pl-0 hover:bg-transparent text-slate-500">
@@ -39,33 +51,87 @@ export default function ClienteDetalle() {
       </Button>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1 shadow-subtle border-slate-200">
-          <CardHeader className="bg-slate-800 text-white rounded-t-lg pb-4">
-            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mb-4 shadow-md">
-              <Building2 className="w-6 h-6 text-white" />
-            </div>
-            <CardTitle className="text-xl">{client.name}</CardTitle>
-            <p className="text-slate-300 font-mono text-sm">{client.rut}</p>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex items-center gap-3 text-sm">
-              <MapPin className="w-5 h-5 text-slate-400" />
-              <span className="font-medium">{client.region}</span>
-            </div>
-            <div className="border-t pt-4 flex gap-2">
-              <Button asChild variant="outline" className="flex-1 gap-2 h-11 border-slate-300">
-                <a href={`tel:${client.phone}`}>
-                  <Phone className="w-4 h-4" /> Llamar
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="flex-1 gap-2 h-11 border-slate-300">
-                <a href={`mailto:${client.email}`}>
-                  <Mail className="w-4 h-4" /> Email
-                </a>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="md:col-span-1 space-y-6">
+          <Card className="shadow-subtle border-slate-200">
+            <CardHeader className="bg-slate-800 text-white rounded-t-lg pb-4">
+              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mb-4 shadow-md">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <CardTitle className="text-xl">{client.name}</CardTitle>
+              <p className="text-slate-300 font-mono text-sm">{client.rut}</p>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-3 text-sm">
+                <MapPin className="w-5 h-5 text-slate-400" />
+                <span className="font-medium">{client.region}</span>
+              </div>
+              <div className="border-t pt-4 flex gap-2">
+                <Button asChild variant="outline" className="flex-1 gap-2 h-11 border-slate-300">
+                  <a href={`tel:${client.phone}`}>
+                    <Phone className="w-4 h-4" /> Llamar
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className="flex-1 gap-2 h-11 border-slate-300">
+                  <a href={`mailto:${client.email}`}>
+                    <Mail className="w-4 h-4" /> Email
+                  </a>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-subtle border-slate-200">
+            <CardHeader className="flex flex-row justify-between items-center pb-2">
+              <CardTitle className="text-lg">Documentos</CardTitle>
+              <div className="relative">
+                <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                  <Upload className="w-4 h-4" /> Subir
+                </Button>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleDocUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 pt-2">
+                {!client.documents?.length && (
+                  <p className="text-sm text-slate-500 text-center py-4">
+                    No hay contratos o documentos.
+                  </p>
+                )}
+                {client.documents?.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex flex-col gap-2 p-3 rounded-lg border bg-slate-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-red-500 shrink-0" />
+                      <span className="font-medium text-sm text-slate-700 truncate">
+                        {doc.name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pl-8">
+                      <span className="text-xs text-slate-500">{doc.date}</span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-orange-600"
+                        asChild
+                      >
+                        <a href={doc.url} target="_blank" rel="noreferrer">
+                          Ver
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="md:col-span-2 space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -85,7 +151,7 @@ export default function ClienteDetalle() {
 
           <Card className="shadow-subtle border-slate-200">
             <CardHeader>
-              <CardTitle>Historial de Operaciones y Equipos</CardTitle>
+              <CardTitle>Historial de Operaciones y Facturas</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

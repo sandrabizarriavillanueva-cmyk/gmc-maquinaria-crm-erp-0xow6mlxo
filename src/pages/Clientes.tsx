@@ -14,11 +14,23 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClienteAddModal } from '@/components/ClienteAddModal'
 import { ClienteImportModal } from '@/components/ClienteImportModal'
-import { Search, MapPin } from 'lucide-react'
+import { Search, MapPin, ShieldAlert } from 'lucide-react'
 
 export default function Clientes() {
-  const { clients } = useStore()
+  const { clients, currentRole } = useStore()
   const [search, setSearch] = useState('')
+
+  if (currentRole === 'Técnico') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <ShieldAlert className="w-16 h-16 text-slate-300" />
+        <div className="text-xl font-bold text-slate-500">Acceso Restringido</div>
+        <p className="text-slate-400">
+          El módulo de clientes está restringido a Vendedores y Administradores.
+        </p>
+      </div>
+    )
+  }
 
   const filtered = clients.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.rut.includes(search),
@@ -32,7 +44,7 @@ export default function Clientes() {
             Directorio de Clientes
           </h1>
           <p className="text-slate-500">
-            Visualiza y gestiona la cartera de clientes corporativos.
+            Visualiza y gestiona la cartera de clientes corporativos y sus documentos.
           </p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -51,7 +63,6 @@ export default function Clientes() {
         />
       </div>
 
-      {/* Desktop Table */}
       <div className="hidden md:block rounded-xl border bg-white shadow-subtle overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50">
@@ -67,7 +78,7 @@ export default function Clientes() {
             {filtered.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium whitespace-nowrap">{c.rut}</TableCell>
-                <TableCell className="font-semibold">{c.name}</TableCell>
+                <TableCell className="font-semibold text-slate-800">{c.name}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1 text-slate-500">
                     <MapPin className="w-4 h-4" /> {c.region}
@@ -75,8 +86,13 @@ export default function Clientes() {
                 </TableCell>
                 <TableCell>{c.phone}</TableCell>
                 <TableCell className="text-right">
-                  <Button asChild variant="outline" size="sm" className="h-9">
-                    <Link to={`/clientes/${c.id}`}>Ver Detalle</Link>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-9 hover:border-orange-500 hover:text-orange-600"
+                  >
+                    <Link to={`/clientes/${c.id}`}>Ver Detalle / Documentos</Link>
                   </Button>
                 </TableCell>
               </TableRow>
@@ -92,7 +108,6 @@ export default function Clientes() {
         </Table>
       </div>
 
-      {/* Mobile Cards */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {filtered.map((c) => (
           <Card key={c.id} className="shadow-subtle border-slate-200">
@@ -105,7 +120,7 @@ export default function Clientes() {
                 <MapPin className="w-4 h-4" /> {c.region}
               </div>
               <Button asChild variant="outline" className="w-full h-11 mt-2 border-slate-300">
-                <Link to={`/clientes/${c.id}`}>Ver Detalle de Cliente</Link>
+                <Link to={`/clientes/${c.id}`}>Ver Detalle y Documentos</Link>
               </Button>
             </CardContent>
           </Card>

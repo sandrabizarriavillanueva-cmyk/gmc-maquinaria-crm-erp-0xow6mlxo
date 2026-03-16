@@ -10,6 +10,8 @@ import Clientes from '@/pages/Clientes'
 import ClienteDetalle from '@/pages/ClienteDetalle'
 import Ventas from '@/pages/Ventas'
 import Facturacion from '@/pages/Facturacion'
+import Reportes from '@/pages/Reportes'
+import Auditoria from '@/pages/Auditoria'
 import NotFound from '@/pages/NotFound'
 
 const App = () => (
@@ -26,6 +28,8 @@ const App = () => (
             <Route path="/clientes/:id" element={<ClienteDetalle />} />
             <Route path="/ventas" element={<Ventas />} />
             <Route path="/facturacion" element={<Facturacion />} />
+            <Route path="/reportes" element={<Reportes />} />
+            <Route path="/auditoria" element={<Auditoria />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
