@@ -26,7 +26,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser))
-        } catch (e) {}
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
       }
     }
   }, [token])
