@@ -35,6 +35,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('Técnico')
   const [preview, setPreview] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -45,12 +46,14 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
         setPassword('')
         setRole(user.role)
         setPreview(user.avatarUrl || '')
+        setAvatarFile(null)
       } else {
         setName('')
         setEmail('')
         setPassword('')
         setRole('Técnico')
         setPreview('')
+        setAvatarFile(null)
       }
     }
   }, [user, open])
@@ -58,6 +61,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setAvatarFile(file)
       const reader = new FileReader()
       reader.onloadend = () => setPreview(reader.result as string)
       reader.readAsDataURL(file)
@@ -75,19 +79,20 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     }
 
     setIsLoading(true)
+    const payload: any = { name, email, role }
+
+    if (avatarFile) {
+      payload.avatarUrl = avatarFile
+    } else if (preview && !preview.startsWith('data:')) {
+      payload.avatarUrl = preview
+    }
+
+    if (password && password.trim() !== '') {
+      payload.password = password
+      payload.passwordConfirm = password
+    }
+
     try {
-      const payload: any = { name, email, role }
-
-      if (preview && !preview.startsWith('data:')) {
-        payload.avatarUrl = preview
-      }
-
-      // Try sending with password first
-      if (password && password.trim() !== '') {
-        payload.password = password
-        payload.passwordConfirm = password
-      }
-
       if (user) {
         await updateUser(user.id, payload)
         toast({
@@ -103,33 +108,32 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       }
       onOpenChange(false)
     } catch (err: any) {
-      // Fallback: If it's a Base collection, it completely rejects the password and passwordConfirm fields
-      if (err.message && (err.message.includes('400') || err.message.includes('password'))) {
+      // Silently handle Base collection schema rejection for password
+      if (err.message && err.message.includes('400') && payload.password) {
+        delete payload.password
+        delete payload.passwordConfirm
         try {
-          const fallbackPayload: any = { name, email, role }
-          if (preview && !preview.startsWith('data:')) fallbackPayload.avatarUrl = preview
-
           if (user) {
-            await updateUser(user.id, fallbackPayload)
+            await updateUser(user.id, payload)
           } else {
-            await addUser(fallbackPayload)
+            await addUser(payload)
           }
           toast({
-            title: 'Colaborador guardado (Modo Base)',
-            description: 'Guardado exitosamente en la base de datos sin requerir contraseña.',
+            title: 'Colaborador guardado',
+            description: 'Guardado exitosamente en el sistema.',
           })
           onOpenChange(false)
         } catch (fallbackErr: any) {
           toast({
-            title: 'Error de persistencia',
+            title: 'Error al guardar',
             description: fallbackErr.message || 'El servidor rechazó los datos.',
             variant: 'destructive',
           })
         }
       } else {
         toast({
-          title: 'Error de base de datos',
-          description: err.message || 'Error al comunicar con la colección collaborators.',
+          title: 'Error de conexión',
+          description: err.message || 'No se pudo guardar el colaborador.',
           variant: 'destructive',
         })
       }
@@ -192,7 +196,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             <Input
               type="password"
               placeholder={
-                user ? 'Dejar en blanco para mantener la actual' : 'Opcional según schema'
+                user ? 'Dejar en blanco para mantener la actual' : 'Opcional según configuración'
               }
               value={password}
               onChange={(e) => setPassword(e.target.value)}

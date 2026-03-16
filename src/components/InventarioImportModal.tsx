@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import { useStore } from '@/context/MainContext'
 import { toast } from '@/hooks/use-toast'
 import { parseCSVRaw } from '@/lib/csv'
@@ -19,6 +20,7 @@ export function InventarioImportModal() {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [importSuccess, setImportSuccess] = useState(0)
 
@@ -28,6 +30,7 @@ export function InventarioImportModal() {
       setFile(null)
       setImportErrors([])
       setImportSuccess(0)
+      setProgress({ current: 0, total: 0 })
     }
   }
 
@@ -98,72 +101,88 @@ export function InventarioImportModal() {
         ? rawData[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
         : []
 
+      const totalRows = rawData.length - startIndex
+      setProgress({ current: 0, total: totalRows })
+
       let imported = 0
       let errors = 0
       const errorDetails: string[] = []
 
-      for (let i = startIndex; i < rawData.length; i++) {
-        const row = rawData[i]
-        if (row.length < 2) continue
+      const BATCH_SIZE = 5
+      const DELAY_MS = 250
 
-        const rowNum = i + 1
+      for (let i = startIndex; i < rawData.length; i += BATCH_SIZE) {
+        const chunk = rawData.slice(i, i + BATCH_SIZE)
 
-        const getVal = (names: string[], fallbackIdx: number) => {
-          if (hasHeaders) {
-            for (let j = 0; j < headers.length; j++) {
-              if (names.some((n) => headers[j].includes(n))) return row[j]
+        const promises = chunk.map(async (row, chunkIdx) => {
+          const rowNum = i + chunkIdx + 1
+          if (row.length < 2) return
+
+          const getVal = (names: string[], fallbackIdx: number) => {
+            if (hasHeaders) {
+              for (let j = 0; j < headers.length; j++) {
+                if (names.some((n) => headers[j].includes(n))) return row[j]
+              }
             }
+            return row[fallbackIdx]
           }
-          return row[fallbackIdx]
-        }
 
-        const sku = getVal(['sku', 'codigo'], 0)
-        const brand = getVal(['marca', 'brand'], 1) || 'Genérica'
-        const name = getVal(['descrip', 'nombre', 'producto'], 2) || 'Equipo Genérico'
-        const category = getVal(['categoria', 'tipo'], 3) || 'Repuesto'
-        const specs = getVal(['especificacion', 'detalle', 'specs'], 4) || ''
-        const rawPrice = getVal(['precio', 'price', 'valor'], 5) || '0'
-        const rawCost = getVal(['costo', 'cost'], 6) || '0'
-        const rawStock = getVal(['stock', 'cantidad'], 7) || '1'
-        const rawStatus = getVal(['estado', 'status'], 8) || 'Disponible'
+          const sku = getVal(['sku', 'codigo'], 0)
+          const brand = getVal(['marca', 'brand'], 1) || 'Genérica'
+          const name = getVal(['descrip', 'nombre', 'producto'], 2) || 'Equipo Genérico'
+          const category = getVal(['categoria', 'tipo'], 3) || 'Repuesto'
+          const specs = getVal(['especificacion', 'detalle', 'specs'], 4) || ''
+          const rawPrice = getVal(['precio', 'price', 'valor'], 5) || '0'
+          const rawCost = getVal(['costo', 'cost'], 6) || '0'
+          const rawStock = getVal(['stock', 'cantidad'], 7) || '1'
+          const rawStatus = getVal(['estado', 'status'], 8) || 'Disponible'
 
-        if (!sku) {
-          errors++
-          errorDetails.push(`Fila ${rowNum}: Falta el código SKU.`)
-          continue
-        }
+          if (!sku) {
+            errors++
+            errorDetails.push(`Fila ${rowNum}: Falta el código SKU.`)
+            return
+          }
 
-        const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
-        const cost = parseInt(String(rawCost).replace(/[^0-9]/g, ''), 10) || 0
-        const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 1
+          const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
+          const cost = parseInt(String(rawCost).replace(/[^0-9]/g, ''), 10) || 0
+          const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 1
 
-        let status: EquipmentStatus = 'Disponible'
-        const lowerStatus = String(rawStatus).toLowerCase()
-        if (lowerStatus.includes('inactiv') || lowerStatus.includes('baja')) status = 'Inactivo'
-        else if (lowerStatus.includes('mantenci') || lowerStatus.includes('reparaci'))
-          status = 'En Mantención'
-        else if (lowerStatus.includes('arrend') || lowerStatus.includes('locaci'))
-          status = 'Arrendado'
+          let status: EquipmentStatus = 'Disponible'
+          const lowerStatus = String(rawStatus).toLowerCase()
+          if (lowerStatus.includes('inactiv') || lowerStatus.includes('baja')) status = 'Inactivo'
+          else if (lowerStatus.includes('mantenci') || lowerStatus.includes('reparaci'))
+            status = 'En Mantención'
+          else if (lowerStatus.includes('arrend') || lowerStatus.includes('locaci'))
+            status = 'Arrendado'
 
-        try {
-          await addProduct({
-            sku: String(sku).trim(),
-            brand: String(brand).trim(),
-            name: String(name).trim(),
-            description: String(name).trim(),
-            category: String(category).trim(),
-            specs: String(specs).trim(),
-            price,
-            cost,
-            stock,
-            minStock: 0,
-            status,
-          })
-          imported++
-        } catch (e: any) {
-          errors++
-          errorDetails.push(`Fila ${rowNum} (${sku}): ${e.message}`)
-        }
+          try {
+            await addProduct({
+              sku: String(sku).trim(),
+              brand: String(brand).trim(),
+              name: String(name).trim(),
+              description: String(name).trim(),
+              category: String(category).trim(),
+              specs: String(specs).trim(),
+              price,
+              cost,
+              stock,
+              minStock: 0,
+              status,
+            })
+            imported++
+          } catch (e: any) {
+            errors++
+            errorDetails.push(`Fila ${rowNum} (${sku}): ${e.message}`)
+          }
+        })
+
+        await Promise.allSettled(promises)
+        setProgress((prev) => ({
+          ...prev,
+          current: Math.min(i - startIndex + BATCH_SIZE, totalRows),
+        }))
+        // Throttling to prevent server connection drops
+        await new Promise((r) => setTimeout(r, DELAY_MS))
       }
 
       if (errors > 0) {
@@ -173,7 +192,7 @@ export function InventarioImportModal() {
         handleOpenChange(false)
         toast({
           title: 'Importación Completada',
-          description: `Se han importado ${imported} equipos correctamente en el inventario.`,
+          description: `Se han importado ${imported} equipos correctamente sin errores.`,
         })
       }
     } catch (err: any) {
@@ -210,14 +229,27 @@ export function InventarioImportModal() {
               accept=".csv,.xlsx,.xls"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="cursor-pointer h-11"
+              disabled={isLoading}
             />
           </div>
+
+          {isLoading && progress.total > 0 && (
+            <div className="space-y-2 animate-fade-in">
+              <div className="flex justify-between text-sm font-medium text-slate-600">
+                <span>Procesando registros...</span>
+                <span>
+                  {progress.current} / {progress.total}
+                </span>
+              </div>
+              <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+            </div>
+          )}
 
           {importErrors.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800 flex flex-col gap-2">
               <div className="flex items-center gap-2 font-bold">
-                <AlertCircle className="w-4 h-4" />
-                Se encontraron {importErrors.length} advertencias:
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Se encontraron {importErrors.length} advertencias de importación:
               </div>
               <ul className="list-disc pl-5 max-h-32 overflow-y-auto space-y-1">
                 {importErrors.map((err, i) => (

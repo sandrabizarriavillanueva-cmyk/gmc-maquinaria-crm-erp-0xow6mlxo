@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useStore } from '@/context/MainContext'
-import { Image as ImageIcon } from 'lucide-react'
+import { Image as ImageIcon, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export function InventarioImageModal({
@@ -19,25 +19,25 @@ export function InventarioImageModal({
 }) {
   const { updateProductImage, currentRole } = useStore()
   const [open, setOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const r = new FileReader()
-      r.onloadend = async () => {
-        try {
-          await updateProductImage(productId, r.result as string)
-          setOpen(false)
-          toast({ title: 'Imagen guardada correctamente' })
-        } catch (err) {
-          toast({
-            title: 'Error al subir imagen',
-            description: 'No se pudo guardar la fotografía en la base de datos.',
-            variant: 'destructive',
-          })
-        }
+      setIsLoading(true)
+      try {
+        await updateProductImage(productId, file)
+        setOpen(false)
+        toast({ title: 'Imagen guardada correctamente' })
+      } catch (err: any) {
+        toast({
+          title: 'Error al subir imagen',
+          description: err.message || 'No se pudo guardar la fotografía.',
+          variant: 'destructive',
+        })
+      } finally {
+        setIsLoading(false)
       }
-      r.readAsDataURL(file)
     }
   }
 
@@ -58,7 +58,12 @@ export function InventarioImageModal({
         <DialogHeader>
           <DialogTitle>Fotografía Técnica del Equipo</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 relative">
+          {isLoading && (
+            <div className="absolute inset-0 z-10 bg-white/50 flex items-center justify-center rounded-md">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-800" />
+            </div>
+          )}
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -76,7 +81,8 @@ export function InventarioImageModal({
                 type="file"
                 accept="image/*"
                 onChange={handleFile}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer"
+                disabled={isLoading}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer disabled:opacity-50"
               />
             </div>
           )}

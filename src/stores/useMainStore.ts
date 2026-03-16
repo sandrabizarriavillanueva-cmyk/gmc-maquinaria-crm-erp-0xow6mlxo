@@ -231,7 +231,15 @@ export default function useMainStore() {
     const initData = async () => {
       try {
         const dbUsers = await pb.get('collaborators')
-        setUsers(dbUsers.length > 0 ? dbUsers : MOCK_USERS)
+        if (dbUsers.length > 0) {
+          const mappedUsers = dbUsers.map((u: any) => ({
+            ...u,
+            avatarUrl: pb.getFileUrl('collaborators', u.id, u.avatarUrl || u.avatar),
+          }))
+          setUsers(mappedUsers)
+        } else {
+          setUsers(MOCK_USERS)
+        }
       } catch (err) {
         console.warn('Fallback to mock users', err)
         setUsers(MOCK_USERS)
@@ -239,7 +247,15 @@ export default function useMainStore() {
 
       try {
         const dbProducts = await pb.get('inventory')
-        setProducts(dbProducts.length > 0 ? dbProducts : MOCK_PRODUCTS)
+        if (dbProducts.length > 0) {
+          const mappedProducts = dbProducts.map((p: any) => ({
+            ...p,
+            imageUrl: pb.getFileUrl('inventory', p.id, p.imageUrl || p.image),
+          }))
+          setProducts(mappedProducts)
+        } else {
+          setProducts(MOCK_PRODUCTS)
+        }
       } catch (err) {
         console.warn('Fallback to mock products', err)
         setProducts(MOCK_PRODUCTS)
@@ -264,17 +280,27 @@ export default function useMainStore() {
 
   const addUser = async (user: any) => {
     const created = await pb.create('collaborators', user)
+    created.avatarUrl = pb.getFileUrl(
+      'collaborators',
+      created.id,
+      created.avatarUrl || created.avatar,
+    )
     setUsers((prev) => [created, ...prev])
     addLog('Nuevo Colaborador', user.name)
   }
 
-  const updateUser = async (id: string, data: Partial<User>) => {
+  const updateUser = async (id: string, data: any) => {
     if (isMockId(id)) {
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)))
       addLog('Actualización Colaborador (Mock)', data.name || id)
       return
     }
     const updated = await pb.update('collaborators', id, data)
+    updated.avatarUrl = pb.getFileUrl(
+      'collaborators',
+      updated.id,
+      updated.avatarUrl || updated.avatar,
+    )
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)))
     addLog('Actualización Colaborador', data.name || id)
   }
@@ -290,6 +316,7 @@ export default function useMainStore() {
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     const created = await pb.create('inventory', product)
+    created.imageUrl = pb.getFileUrl('inventory', created.id, created.imageUrl || created.image)
     setProducts((prev) => [created, ...prev])
     addLog('Nuevo Equipo', product.name)
   }
@@ -319,12 +346,16 @@ export default function useMainStore() {
     setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, clientId } : x)))
   }
 
-  const updateProductImage = async (id: string, imageUrl: string) => {
+  const updateProductImage = async (id: string, image: File | string) => {
     const p = products.find((x) => x.id === id)
     if (!isMockId(id)) {
-      await pb.update('inventory', id, { imageUrl })
+      const updated = await pb.update('inventory', id, { imageUrl: image })
+      const finalUrl = pb.getFileUrl('inventory', updated.id, updated.imageUrl || updated.image)
+      setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl: finalUrl } : x)))
+    } else {
+      const finalUrl = image instanceof File ? URL.createObjectURL(image) : image
+      setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl: finalUrl } : x)))
     }
-    setProducts((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl } : x)))
     addLog('Actualización de Imagen', p?.name || id)
   }
 
