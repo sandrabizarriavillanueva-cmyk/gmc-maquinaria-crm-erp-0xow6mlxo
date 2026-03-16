@@ -4,23 +4,26 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { AppSidebar } from './AppSidebar'
 import { RoleSelector } from './RoleSelector'
 import { NotificationsDropdown } from './NotificationsDropdown'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/use-auth'
 import { useStore } from '@/context/MainContext'
 import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function Layout() {
   const location = useLocation()
-  const { token, user, logout } = useAuth()
-  const { setCurrentRole } = useStore()
+  const { session, signOut } = useAuth()
+  const { setCurrentRole, users } = useStore()
 
   useEffect(() => {
-    if (user && user.role) {
-      setCurrentRole(user.role)
+    if (session?.user?.email) {
+      const loggedInUser = users.find((u) => u.email === session.user.email)
+      if (loggedInUser && loggedInUser.role) {
+        setCurrentRole(loggedInUser.role)
+      }
     }
-  }, [user, setCurrentRole])
+  }, [session, users, setCurrentRole])
 
-  if (!token) {
+  if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
@@ -42,7 +45,7 @@ export default function Layout() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={logout}
+              onClick={signOut}
               title="Cerrar sesión"
               className="text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors"
             >

@@ -228,7 +228,14 @@ export function InventarioImportModal() {
             <Input
               type="file"
               accept=".csv,.xlsx,.xls"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const files = e.target?.files
+                if (files && files.length > 0) {
+                  setFile(files[0])
+                } else {
+                  setFile(null)
+                }
+              }}
               className="cursor-pointer h-11"
               disabled={isLoading}
             />

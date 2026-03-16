@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/use-auth'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,22 +8,23 @@ import { ShieldAlert, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function Login() {
-  const { login, token } = useAuth()
+  const { signIn, session } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  if (token) return <Navigate to="/" replace />
+  if (session) return <Navigate to="/" replace />
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     try {
-      await login(email, password)
+      const { error } = await signIn(email, password)
+      if (error) throw error
     } catch (err: any) {
       toast({
         title: 'Error de Autenticación',
-        description: 'Credenciales inválidas, verifica tu correo y contraseña.',
+        description: err.message || 'Credenciales inválidas, verifica tu correo y contraseña.',
         variant: 'destructive',
       })
     } finally {

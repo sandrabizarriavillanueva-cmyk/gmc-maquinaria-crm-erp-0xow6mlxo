@@ -29,7 +29,9 @@ export default function Configuracion() {
   const isAdmin = currentRole === 'Administrador'
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target?.files
+    if (!files || files.length === 0) return
+    const file = files[0]
     if (file) {
       const r = new FileReader()
       r.onloadend = () => {
@@ -41,7 +43,9 @@ export default function Configuracion() {
   }
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target?.files
+    if (!files || files.length === 0) return
+    const file = files[0]
     if (file) {
       const r = new FileReader()
       r.onloadend = () => {

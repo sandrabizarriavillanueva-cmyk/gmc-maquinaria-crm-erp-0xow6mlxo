@@ -76,7 +76,9 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
   }, [user, open])
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target?.files
+    if (!files || files.length === 0) return
+    const file = files[0]
     if (file) {
       setAvatarFile(file)
       const reader = new FileReader()
@@ -114,10 +116,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       formSchema.parse({ name, email, password: password || undefined, role })
     } catch (err: any) {
       if (err instanceof z.ZodError) {
-        const msg =
-          err.errors && err.errors.length > 0
-            ? err.errors[0].message
-            : 'Revise los datos ingresados'
+        const msg = err.errors?.[0]?.message || 'Revise los datos ingresados'
         return toast({
           title: 'Error de validación',
           description: msg,
@@ -150,9 +149,22 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       }
       onOpenChange(false)
     } catch (err: any) {
+      let errorMessage = 'No se pudo guardar la información del colaborador.'
+      if (err && typeof err === 'object') {
+        errorMessage = err.message || errorMessage
+        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(errorMessage)
+            errorMessage = parsed.message || errorMessage
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+      }
+
       toast({
         title: 'Error al procesar la solicitud',
-        description: err?.message || 'No se pudo guardar la información del colaborador.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {

@@ -22,7 +22,9 @@ export function InventarioImageModal({
   const [isLoading, setIsLoading] = useState(false)
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target?.files
+    if (!files || files.length === 0) return
+    const file = files[0]
     if (file) {
       setIsLoading(true)
       try {

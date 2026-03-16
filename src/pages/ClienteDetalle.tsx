@@ -35,7 +35,9 @@ export default function ClienteDetalle() {
     .reduce((acc, i) => acc + i.amount, 0)
 
   const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = e.target?.files
+    if (!files || files.length === 0) return
+    const file = files[0]
     if (file) {
       addClientDocument(client.id, {
         id: Math.random().toString(),
