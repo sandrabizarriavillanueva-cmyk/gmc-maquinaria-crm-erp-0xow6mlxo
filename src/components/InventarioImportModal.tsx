@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useStore } from '@/context/MainContext'
 import { toast } from '@/hooks/use-toast'
-import { parseCSV } from '@/lib/csv'
+import { parseCSVRaw } from '@/lib/csv'
 import { Upload, Download, FileUp, Loader2, AlertCircle } from 'lucide-react'
 import { EquipmentStatus } from '@/types'
 
@@ -67,7 +67,7 @@ export function InventarioImportModal() {
 
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       setImportErrors([
-        'Por favor, convierte tu archivo Excel a formato "CSV (delimitado por comas)" antes de subirlo para asegurar una correcta importación.',
+        'Por favor, convierte tu archivo Excel a formato "CSV (delimitado por comas o punto y coma)" antes de subirlo para asegurar una correcta importación.',
       ])
       return
     }
@@ -78,40 +78,70 @@ export function InventarioImportModal() {
 
     try {
       const text = await file.text()
-      const data = parseCSV(text)
+      const rawData = parseCSVRaw(text)
 
-      if (data.length === 0) {
+      if (rawData.length === 0) {
         setImportErrors(['El archivo está vacío o no tiene un formato CSV válido.'])
         setIsLoading(false)
         return
       }
 
+      let startIndex = 0
+      const firstRowStr = rawData[0].join('').toLowerCase()
+      const hasHeaders =
+        firstRowStr.includes('sku') &&
+        (firstRowStr.includes('nombre') || firstRowStr.includes('descripc'))
+
+      if (hasHeaders) {
+        startIndex = 1
+      }
+
+      const headers = hasHeaders
+        ? rawData[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''))
+        : []
+
       let imported = 0
       let errors = 0
       const errorDetails: string[] = []
 
-      for (const [index, row] of data.entries()) {
-        const rowNum = index + 2
+      for (let i = startIndex; i < rawData.length; i++) {
+        const row = rawData[i]
+        if (row.length === 0 || (row.length === 1 && !row[0])) continue
 
-        const getCol = (names: string[]) => {
-          for (const key of Object.keys(row)) {
-            const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '')
-            if (names.some((n) => cleanKey === n.toLowerCase().replace(/[^a-z0-9]/g, ''))) {
-              return row[key]
+        const rowNum = i + 1
+        let sku, brand, name, rawCategory, specs, rawPrice, rawStock, rawMinStock, rawStatus
+
+        if (hasHeaders) {
+          const getCol = (names: string[]) => {
+            for (let j = 0; j < headers.length; j++) {
+              if (names.some((n) => headers[j] === n.toLowerCase().replace(/[^a-z0-9]/g, ''))) {
+                return row[j]
+              }
             }
+            return undefined
           }
-          return undefined
+          sku = getCol(['skucodigo', 'sku', 'codigo'])
+          brand = getCol(['marca']) || 'Genérica'
+          name = getCol(['nombredelproducto', 'nombre', 'producto', 'descripcion'])
+          rawCategory = getCol(['categoria', 'tipo']) || 'Repuesto'
+          specs = getCol(['especificacionestecnicas', 'especificaciones', 'detalles']) || ''
+          rawPrice = getCol(['preciounitario', 'precio', 'valor', 'neto']) || '0'
+          rawStock = getCol(['stockactual', 'stock', 'cantidad']) || '0'
+          rawMinStock = getCol(['stockminimo', 'minimo']) || '0'
+          rawStatus = getCol(['estadodelequipo', 'estado']) || 'Disponible'
+        } else {
+          // Expected user structure without headers:
+          // SKU;Brand;Description;Category;Specs;Price;SecondaryPrice;Stock;Status
+          sku = row[0]
+          brand = row[1] || 'Genérica'
+          name = row[2]
+          rawCategory = row[3] || 'Repuesto'
+          specs = row[4] || ''
+          rawPrice = row[5] || '0'
+          rawStock = row[7] || '1'
+          rawStatus = row[8] || 'Disponible'
+          rawMinStock = '0'
         }
-
-        const sku = getCol(['SKUCodigo', 'SKU', 'Codigo'])
-        const brand = getCol(['Marca']) || 'Genérica'
-        const name = getCol(['NombredelProducto', 'Nombre', 'Producto', 'Descripcion'])
-        const rawCategory = getCol(['Categoria', 'Tipo']) || 'Repuesto'
-        const specs = getCol(['EspecificacionesTecnicas', 'Especificaciones', 'Detalles']) || ''
-        const rawPrice = getCol(['PrecioUnitario', 'Precio', 'Valor', 'Neto']) || '0'
-        const rawStock = getCol(['StockActual', 'Stock', 'Cantidad']) || '0'
-        const rawMinStock = getCol(['StockMinimo', 'Minimo']) || '0'
-        const rawStatus = getCol(['EstadodelEquipo', 'Estado']) || 'Disponible'
 
         if (!sku || !name) {
           errors++
@@ -120,7 +150,7 @@ export function InventarioImportModal() {
         }
 
         const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
-        const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 0
+        const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 1
         const minStock = parseInt(String(rawMinStock).replace(/[^0-9-]/g, ''), 10) || 0
 
         let status: EquipmentStatus = 'Disponible'
@@ -131,18 +161,7 @@ export function InventarioImportModal() {
         else if (lowerStatus.includes('arrendado') || lowerStatus.includes('locaci'))
           status = 'Arrendado'
 
-        const validCategories = [
-          'Compresor',
-          'Secador',
-          'Chiller',
-          'Filtro',
-          'Purgador',
-          'Repuesto',
-          'Consumible',
-        ]
-        const category =
-          validCategories.find((c) => c.toLowerCase() === String(rawCategory).toLowerCase()) ||
-          'Repuesto'
+        const category = String(rawCategory).trim() || 'Repuesto'
 
         try {
           await addProduct({
@@ -159,9 +178,11 @@ export function InventarioImportModal() {
           imported++
         } catch (e: any) {
           errors++
-          errorDetails.push(
-            `Fila ${rowNum} (${sku}): El servidor rechazó los datos (posible SKU duplicado).`,
-          )
+          if (e.message?.includes('permisos') || e.message?.includes('403')) {
+            errorDetails.push(`Fila ${rowNum} (${sku}): Error de permisos (API Rules).`)
+          } else {
+            errorDetails.push(`Fila ${rowNum} (${sku}): Falló al guardar en BD.`)
+          }
         }
       }
 
@@ -176,7 +197,7 @@ export function InventarioImportModal() {
         })
       }
     } catch (err: any) {
-      setImportErrors([`No se pudo leer el archivo: ${err.message}`])
+      setImportErrors([`No se pudo procesar el archivo CSV: ${err.message}`])
     } finally {
       setIsLoading(false)
     }
@@ -196,7 +217,7 @@ export function InventarioImportModal() {
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
             <p className="text-sm text-slate-500">
-              Descarga la plantilla CSV y complétala con la información técnica de los equipos.
+              Sube tu archivo delimitado por punto y coma (;) para actualizar la base de datos.
             </p>
             <Button variant="secondary" onClick={downloadTemplate} className="w-full gap-2">
               <Download className="w-4 h-4" /> Descargar Plantilla

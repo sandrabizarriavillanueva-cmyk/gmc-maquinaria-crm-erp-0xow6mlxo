@@ -76,12 +76,16 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
 
     setIsLoading(true)
     try {
-      const payload: any = { name, email, role, avatarUrl: preview }
+      const payload: any = { name, email, role }
 
-      // En bases de datos como PocketBase se requiere passwordConfirm al cambiar o crear contraseñas
+      // Avoid sending base64 payloads to database to prevent 400 validation errors on file fields
+      if (preview && !preview.startsWith('data:')) {
+        payload.avatarUrl = preview
+      }
+
       if (password && password.trim() !== '') {
         payload.password = password
-        payload.passwordConfirm = password
+        payload.passwordConfirm = password // PocketBase default for Auth collections
       }
 
       if (user) {
@@ -99,12 +103,37 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       }
       onOpenChange(false)
     } catch (err: any) {
-      toast({
-        title: 'Error de persistencia',
-        description:
-          err.message || 'El servidor rechazó los datos. Verifica que el correo no esté en uso.',
-        variant: 'destructive',
-      })
+      // Fallback: If it's a Base collection, it rejects the passwordConfirm field
+      if (err.message && err.message.includes('passwordConfirm')) {
+        try {
+          const fallbackPayload: any = { name, email, role }
+          if (preview && !preview.startsWith('data:')) fallbackPayload.avatarUrl = preview
+          if (password && password.trim() !== '') fallbackPayload.password = password
+
+          if (user) {
+            await updateUser(user.id, fallbackPayload)
+          } else {
+            await addUser(fallbackPayload)
+          }
+          toast({
+            title: 'Colaborador guardado',
+            description: 'Guardado exitosamente sin confirmación de clave (modo Base).',
+          })
+          onOpenChange(false)
+        } catch (fallbackErr: any) {
+          toast({
+            title: 'Error de persistencia',
+            description: fallbackErr.message || 'El servidor rechazó los datos.',
+            variant: 'destructive',
+          })
+        }
+      } else {
+        toast({
+          title: 'Error de base de datos',
+          description: err.message || 'El servidor rechazó los datos. Verifica reglas y permisos.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setIsLoading(false)
     }

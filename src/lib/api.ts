@@ -8,39 +8,86 @@ const getBaseUrl = () => {
 
 const BASE_URL = getBaseUrl()
 
+const handleResponse = async (res: Response, collection: string, action: string) => {
+  if (!res.ok) {
+    let errorMsg = ''
+    try {
+      const data = await res.json()
+      errorMsg = JSON.stringify(data)
+    } catch {
+      errorMsg = await res.text()
+    }
+
+    if (res.status === 403 || res.status === 401) {
+      throw new Error(
+        `Error de permisos (API Rules): No tienes autorización para ${action} en la colección '${collection}'. Por favor, verifica las reglas de acceso en el panel de backend.`,
+      )
+    } else if (res.status === 400) {
+      throw new Error(`Datos inválidos (400) al ${action} en '${collection}': ${errorMsg}`)
+    } else if (res.status === 404) {
+      throw new Error(`Registro no encontrado (404) en '${collection}'.`)
+    } else {
+      throw new Error(
+        `Error del servidor (${res.status}) al ${action} en '${collection}': ${errorMsg}`,
+      )
+    }
+  }
+  return action === 'eliminar' ? true : res.json()
+}
+
 export const pb = {
   get: async (collection: string) => {
-    const res = await fetch(`${BASE_URL}/${collection}/records?perPage=500`, {
-      headers: { Accept: 'application/json' },
-    })
-    if (!res.ok) throw new Error(`Error fetching ${collection}`)
-    const data = await res.json()
-    return data.items
+    try {
+      const res = await fetch(`${BASE_URL}/${collection}/records?perPage=500`, {
+        headers: { Accept: 'application/json' },
+      })
+      const data = await handleResponse(res, collection, 'leer')
+      return data.items || data
+    } catch (e: any) {
+      if (e.message.includes('fetch'))
+        throw new Error('Error de red o timeout al intentar conectar con el servidor.')
+      throw e
+    }
   },
   create: async (collection: string, payload: any) => {
-    const res = await fetch(`${BASE_URL}/${collection}/records`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) throw new Error(`Error creating in ${collection}`)
-    return res.json()
+    try {
+      const res = await fetch(`${BASE_URL}/${collection}/records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      return await handleResponse(res, collection, 'crear')
+    } catch (e: any) {
+      if (e.name === 'TypeError' || e.message.includes('fetch'))
+        throw new Error('Error de conexión o timeout con el servidor.')
+      throw e
+    }
   },
   update: async (collection: string, id: string, payload: any) => {
-    const res = await fetch(`${BASE_URL}/${collection}/records/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) throw new Error(`Error updating in ${collection}`)
-    return res.json()
+    try {
+      const res = await fetch(`${BASE_URL}/${collection}/records/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      return await handleResponse(res, collection, 'actualizar')
+    } catch (e: any) {
+      if (e.name === 'TypeError' || e.message.includes('fetch'))
+        throw new Error('Error de conexión o timeout con el servidor.')
+      throw e
+    }
   },
   delete: async (collection: string, id: string) => {
-    const res = await fetch(`${BASE_URL}/${collection}/records/${id}`, {
-      method: 'DELETE',
-      headers: { Accept: 'application/json' },
-    })
-    if (!res.ok) throw new Error(`Error deleting in ${collection}`)
-    return true
+    try {
+      const res = await fetch(`${BASE_URL}/${collection}/records/${id}`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' },
+      })
+      return await handleResponse(res, collection, 'eliminar')
+    } catch (e: any) {
+      if (e.name === 'TypeError' || e.message.includes('fetch'))
+        throw new Error('Error de conexión o timeout con el servidor.')
+      throw e
+    }
   },
 }
