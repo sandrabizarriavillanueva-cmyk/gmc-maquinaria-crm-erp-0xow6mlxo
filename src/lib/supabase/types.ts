@@ -9,7 +9,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      collaborators: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          client_id: string | null
+          code: string
+          cost: number | null
+          created_at: string
+          id: string
+          image_url: string | null
+          min_stock: number | null
+          name: string
+          price: number | null
+          specs: string | null
+          status: string | null
+          stock: number | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          client_id?: string | null
+          code: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          min_stock?: number | null
+          name: string
+          price?: number | null
+          specs?: string | null
+          status?: string | null
+          stock?: number | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          client_id?: string | null
+          code?: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          min_stock?: number | null
+          name?: string
+          price?: number | null
+          specs?: string | null
+          status?: string | null
+          stock?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -153,3 +230,54 @@ export const Constants = {
 // IMPORTANT: The TypeScript types above map UUID, TEXT, VARCHAR all to "string".
 // Use the COLUMN TYPES section below to know the real PostgreSQL type for each column.
 // Always use the correct PostgreSQL type when writing SQL migrations.
+
+// --- COLUMN TYPES (actual PostgreSQL types) ---
+// Use this to know the real database type when writing migrations.
+// "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: collaborators
+//   id: uuid (not null)
+//   name: text (not null)
+//   email: text (not null)
+//   role: text (not null)
+//   avatar_url: text (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: products
+//   id: uuid (not null, default: gen_random_uuid())
+//   code: text (not null)
+//   name: text (not null)
+//   brand: text (nullable)
+//   category: text (nullable)
+//   status: text (nullable, default: 'Disponible'::text)
+//   stock: numeric (nullable, default: 0)
+//   min_stock: numeric (nullable, default: 0)
+//   price: numeric (nullable, default: 0)
+//   cost: numeric (nullable, default: 0)
+//   specs: text (nullable)
+//   image_url: text (nullable)
+//   client_id: uuid (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
+
+// --- CONSTRAINTS ---
+// Table: collaborators
+//   UNIQUE collaborators_email_key: UNIQUE (email)
+//   FOREIGN KEY collaborators_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+//   PRIMARY KEY collaborators_pkey: PRIMARY KEY (id)
+// Table: products
+//   UNIQUE products_code_key: UNIQUE (code)
+//   PRIMARY KEY products_pkey: PRIMARY KEY (id)
+
+// --- ROW LEVEL SECURITY POLICIES ---
+// Table: collaborators
+//   Policy "Enable all for authenticated users on collaborators" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: products
+//   Policy "Enable all for authenticated users on products" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+
+// --- INDEXES ---
+// Table: collaborators
+//   CREATE UNIQUE INDEX collaborators_email_key ON public.collaborators USING btree (email)
+// Table: products
+//   CREATE UNIQUE INDEX products_code_key ON public.products USING btree (code)

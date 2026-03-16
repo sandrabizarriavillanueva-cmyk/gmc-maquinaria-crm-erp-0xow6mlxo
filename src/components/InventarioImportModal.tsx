@@ -113,7 +113,7 @@ export function InventarioImportModal() {
         const chunk = itemsToImport.slice(batchIdx * BATCH_SIZE, (batchIdx + 1) * BATCH_SIZE)
 
         const dbRows = chunk
-          .map((row, chunkIdx) => {
+          .map((row) => {
             if (row.length < 2) return null
 
             const getVal = (names: string[], fallbackIdx: number) => {
@@ -165,7 +165,11 @@ export function InventarioImportModal() {
           .filter((r) => r !== null)
 
         if (dbRows.length > 0) {
-          const { error } = await supabase.from('products').insert(dbRows as any[])
+          // Usamos upsert para evitar violaciones de clave única/RLS si el producto ya existe.
+          // Esto actualiza el producto si el SKU ya existe, o lo inserta si es nuevo.
+          const { error } = await supabase
+            .from('products')
+            .upsert(dbRows as any[], { onConflict: 'code' })
           if (error) {
             errors += dbRows.length
             errorDetails.push(`Error en lote ${batchIdx + 1}: ${error.message}`)
@@ -184,7 +188,7 @@ export function InventarioImportModal() {
       } else {
         toast({
           title: 'Importación Completada',
-          description: `Se han importado ${imported} equipos correctamente sin errores.`,
+          description: `Se han procesado ${imported} equipos correctamente sin errores.`,
         })
         handleOpenChange(false)
         setTimeout(() => window.location.reload(), 1500)
@@ -210,7 +214,8 @@ export function InventarioImportModal() {
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
             <p className="text-sm text-slate-500">
-              Sube tu archivo delimitado por punto y coma (;) para actualizar la base de datos.
+              Sube tu archivo delimitado por punto y coma (;) para actualizar la base de datos. Si
+              un SKU ya existe, se actualizarán sus datos.
             </p>
             <Button variant="secondary" onClick={downloadTemplate} className="w-full gap-2">
               <Download className="w-4 h-4" /> Descargar Plantilla
@@ -253,7 +258,7 @@ export function InventarioImportModal() {
               {importSuccess > 0 && (
                 <div className="pt-2 mt-1 border-t border-red-200">
                   <p className="text-emerald-700 font-medium">
-                    Adicionalmente, se importaron {importSuccess} equipos con éxito.
+                    Adicionalmente, se procesaron {importSuccess} equipos con éxito.
                   </p>
                   <Button
                     variant="outline"

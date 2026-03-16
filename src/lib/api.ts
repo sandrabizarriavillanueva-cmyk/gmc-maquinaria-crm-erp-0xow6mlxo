@@ -151,8 +151,10 @@ export const pb = {
             const filePath = `${recordId || 'item'}/${fileName}`
             const { error: uploadError } = await supabase.storage
               .from(bucket)
-              .upload(filePath, value)
+              .upload(filePath, value, { upsert: true, cacheControl: '3600' })
+
             if (uploadError) throw new Error('Error al subir imagen: ' + uploadError.message)
+
             const {
               data: { publicUrl },
             } = supabase.storage.from(bucket).getPublicUrl(filePath)
@@ -199,8 +201,10 @@ export const pb = {
             const filePath = `${id}/${fileName}`
             const { error: uploadError } = await supabase.storage
               .from(bucket)
-              .upload(filePath, value)
-            if (uploadError) throw new Error('Error al subir imagen')
+              .upload(filePath, value, { upsert: true, cacheControl: '3600' })
+
+            if (uploadError) throw new Error('Error al subir imagen: ' + uploadError.message)
+
             const {
               data: { publicUrl },
             } = supabase.storage.from(bucket).getPublicUrl(filePath)
