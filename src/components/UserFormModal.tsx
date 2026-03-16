@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { z } from 'zod'
 import { useStore } from '@/context/MainContext'
 import { User, UserRole } from '@/types'
 import {
@@ -26,6 +27,22 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+const formSchema = z.object({
+  name: z.string().min(2, 'El nombre es obligatorio'),
+  email: z
+    .string()
+    .email('Formato de correo inválido')
+    .refine((val) => !val.includes('.gmailcom'), {
+      message: 'Formato de correo incorrecto, verifique el dominio (.com)',
+    }),
+  password: z
+    .string()
+    .min(6, 'La contraseña debe tener al menos 6 caracteres')
+    .optional()
+    .or(z.literal('')),
+  role: z.enum(['Administrador', 'Vendedor', 'Técnico']),
+})
 
 export function UserFormModal({ user, open, onOpenChange }: Props) {
   const { addUser, updateUser } = useStore()
@@ -73,7 +90,6 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
 
     if (!skipPassword && password && password.trim() !== '') {
       payload.password = password
-      payload.passwordConfirm = password
     }
 
     if (avatarFile) {
@@ -85,8 +101,6 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       })
       formData.append('avatar', avatarFile)
       return formData
-    } else if (preview && !preview.startsWith('data:')) {
-      payload.avatarUrl = preview
     }
 
     return payload
@@ -94,12 +108,17 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !email) {
-      return toast({
-        title: 'Campos incompletos',
-        description: 'Por favor, completa al menos el nombre y correo.',
-        variant: 'destructive',
-      })
+
+    try {
+      formSchema.parse({ name, email, password: password || undefined, role })
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return toast({
+          title: 'Error de validación',
+          description: err.errors[0].message,
+          variant: 'destructive',
+        })
+      }
     }
 
     setIsLoading(true)
@@ -121,34 +140,11 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
       }
       onOpenChange(false)
     } catch (err: any) {
-      // Silently handle Base collection schema rejection for password
-      if (err.message && err.message.includes('400') && password) {
-        const retryPayload = buildPayload(true)
-        try {
-          if (user) {
-            await updateUser(user.id, retryPayload)
-          } else {
-            await addUser(retryPayload)
-          }
-          toast({
-            title: 'Colaborador guardado',
-            description: 'Guardado exitosamente en el sistema sin contraseña.',
-          })
-          onOpenChange(false)
-        } catch (fallbackErr: any) {
-          toast({
-            title: 'Error al guardar',
-            description: fallbackErr.message || 'El servidor rechazó los datos.',
-            variant: 'destructive',
-          })
-        }
-      } else {
-        toast({
-          title: 'Error de conexión',
-          description: err.message || 'No se pudo guardar el colaborador.',
-          variant: 'destructive',
-        })
-      }
+      toast({
+        title: 'Error de conexión',
+        description: err.message || 'No se pudo guardar el colaborador.',
+        variant: 'destructive',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -207,7 +203,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             <Label>Contraseña</Label>
             <Input
               type="password"
-              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Ej. pepehome@111'}
+              placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Mínimo 6 caracteres'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
