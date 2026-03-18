@@ -6,6 +6,7 @@ import { MainProvider } from '@/context/MainContext'
 import { AuthProvider } from '@/hooks/use-auth'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
+import Signup from '@/pages/Signup'
 import Index from '@/pages/Index'
 import Inventario from '@/pages/Inventario'
 import Clientes from '@/pages/Clientes'
@@ -29,6 +30,7 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/portal-cliente" element={<PortalCliente />} />
             <Route element={<Layout />}>
               <Route path="/" element={<Index />} />

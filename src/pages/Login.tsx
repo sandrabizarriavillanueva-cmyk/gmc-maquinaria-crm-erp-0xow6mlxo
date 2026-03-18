@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,7 +41,7 @@ export default function Login() {
           <p className="text-slate-500 text-sm mt-2 font-medium">Inicia sesión para continuar</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4 pb-6">
+          <form onSubmit={handleLogin} className="space-y-4 pb-2">
             <Input
               placeholder="Correo electrónico"
               type="email"
@@ -66,6 +66,17 @@ export default function Login() {
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Ingresar al Sistema'}
             </Button>
           </form>
+          <div className="mt-6 text-center border-t pt-4">
+            <p className="text-sm text-slate-500">
+              ¿No tienes cuenta?{' '}
+              <Link
+                to="/signup"
+                className="text-orange-600 hover:text-orange-700 font-semibold hover:underline"
+              >
+                Criar conta
+              </Link>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
