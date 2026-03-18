@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '@/context/MainContext'
-import { User } from '@/types'
+import { User, UserRole } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -28,15 +28,45 @@ import { UserFormModal } from '@/components/UserFormModal'
 import { RestrictedAccess } from '@/components/RestrictedAccess'
 import { Search, UserPlus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { getCollaborators, removeCollaborator } from '@/services/collaborators'
 
 export default function Usuarios() {
-  const { users, deleteUser, currentRole, permissions } = useStore()
+  const { currentRole, permissions } = useStore()
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (!permissions[currentRole].usuarios)
+  const fetchUsers = async () => {
+    try {
+      const data = await getCollaborators()
+      setUsers(
+        data.map((d) => ({
+          id: d.id,
+          name: d.name,
+          email: d.email,
+          role: d.role as UserRole,
+          avatarUrl: d.avatar_url || undefined,
+        })),
+      )
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar los colaboradores',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  if (!permissions[currentRole]?.usuarios)
     return <RestrictedAccess message="Módulo de Colaboradores" />
 
   const filtered = users.filter(
@@ -45,41 +75,16 @@ export default function Usuarios() {
       u.email.toLowerCase().includes(search.toLowerCase()),
   )
 
-  const openAdd = () => {
-    setEditingUser(null)
-    setFormOpen(true)
-  }
-
-  const openEdit = (u: User) => {
-    setEditingUser(u)
-    setFormOpen(true)
-  }
-
-  const handleDelete = async () => {
-    if (userToDelete) {
-      try {
-        await deleteUser(userToDelete.id)
-        toast({ title: 'Usuario eliminado' })
-      } catch (err) {
-        toast({
-          title: 'Error de base de datos',
-          description: 'No se pudo eliminar el usuario.',
-          variant: 'destructive',
-        })
-      }
-      setUserToDelete(null)
-    }
-  }
-
-  const getRoleColor = (role: string) => {
-    if (role === 'Administrador') return 'bg-purple-100 text-purple-700 border-purple-200'
-    if (role === 'Vendedor') return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    return 'bg-blue-100 text-blue-700 border-blue-200'
-  }
+  const getRoleColor = (r: string) =>
+    r === 'Administrador'
+      ? 'bg-purple-100 text-purple-700 border-purple-200'
+      : r === 'Vendedor'
+        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+        : 'bg-blue-100 text-blue-700 border-blue-200'
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">
             Directorio de Colaboradores
@@ -89,7 +94,10 @@ export default function Usuarios() {
           </p>
         </div>
         <Button
-          onClick={openAdd}
+          onClick={() => {
+            setEditingUser(null)
+            setFormOpen(true)
+          }}
           className="bg-orange-500 hover:bg-orange-600 shadow-elevation gap-2 w-full md:w-auto h-11"
         >
           <UserPlus className="w-5 h-5" /> Nuevo Usuario
@@ -118,51 +126,61 @@ export default function Usuarios() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>
-                  <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
-                    <AvatarImage src={u.avatarUrl} className="object-cover" />
-                    <AvatarFallback className="bg-slate-100 font-semibold text-slate-600">
-                      {u.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                </TableCell>
-                <TableCell className="font-semibold text-slate-800">{u.name}</TableCell>
-                <TableCell className="text-slate-600">{u.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getRoleColor(u.role)}>
-                    {u.role}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 text-slate-500 hover:text-slate-800"
-                      onClick={() => openEdit(u)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => setUserToDelete(u)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  Cargando...
                 </TableCell>
               </TableRow>
-            ))}
-            {filtered.length === 0 && (
+            ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={5} className="text-center py-8">
                   No se encontraron usuarios.
                 </TableCell>
               </TableRow>
+            ) : (
+              filtered.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell>
+                    <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
+                      <AvatarImage src={u.avatarUrl} className="object-cover" />
+                      <AvatarFallback className="bg-slate-100 font-semibold text-slate-600">
+                        {u.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TableCell>
+                  <TableCell className="font-semibold text-slate-800">{u.name}</TableCell>
+                  <TableCell className="text-slate-600">{u.email}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getRoleColor(u.role)}>
+                      {u.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-slate-500 hover:text-slate-800"
+                        onClick={() => {
+                          setEditingUser(u)
+                          setFormOpen(true)
+                        }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => setUserToDelete(u)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -190,7 +208,10 @@ export default function Usuarios() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-slate-500 bg-slate-50"
-                  onClick={() => openEdit(u)}
+                  onClick={() => {
+                    setEditingUser(u)
+                    setFormOpen(true)
+                  }}
                 >
                   <Pencil className="w-4 h-4" />
                 </Button>
@@ -208,9 +229,14 @@ export default function Usuarios() {
         ))}
       </div>
 
-      <UserFormModal user={editingUser} open={formOpen} onOpenChange={setFormOpen} />
+      <UserFormModal
+        user={editingUser}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSuccess={fetchUsers}
+      />
 
-      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+      <AlertDialog open={!!userToDelete} onOpenChange={(o) => !o && setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar colaborador?</AlertDialogTitle>
@@ -220,10 +246,25 @@ export default function Usuarios() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="mt-2 sm:mt-0">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-500 hover:bg-red-600 text-white"
-              onClick={handleDelete}
+              onClick={async () => {
+                if (userToDelete) {
+                  try {
+                    await removeCollaborator(userToDelete.id)
+                    toast({ title: 'Usuario eliminado' })
+                    fetchUsers()
+                  } catch (err) {
+                    toast({
+                      title: 'Error de base de datos',
+                      description: 'No se pudo eliminar el usuario.',
+                      variant: 'destructive',
+                    })
+                  }
+                  setUserToDelete(null)
+                }
+              }}
             >
               Eliminar Usuario
             </AlertDialogAction>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { z } from 'zod'
-import { useStore } from '@/context/MainContext'
 import { User, UserRole } from '@/types'
 import {
   Dialog,
@@ -21,11 +20,13 @@ import {
 } from '@/components/ui/select'
 import { Upload, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { createCollaborator, updateCollaborator } from '@/services/collaborators'
 
 interface Props {
   user?: User | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess: () => void
 }
 
 const formSchema = z.object({
@@ -44,69 +45,31 @@ const formSchema = z.object({
   role: z.enum(['Administrador', 'Vendedor', 'Técnico']),
 })
 
-export function UserFormModal({ user, open, onOpenChange }: Props) {
-  const { addUser, updateUser } = useStore()
-
+export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('Técnico')
   const [preview, setPreview] = useState('')
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (open) {
-      if (user) {
-        setName(user.name)
-        setEmail(user.email)
-        setPassword('')
-        setRole(user.role)
-        setPreview(user.avatarUrl || '')
-        setAvatarFile(null)
-      } else {
-        setName('')
-        setEmail('')
-        setPassword('')
-        setRole('Técnico')
-        setPreview('')
-        setAvatarFile(null)
-      }
+      setName(user?.name || '')
+      setEmail(user?.email || '')
+      setPassword('')
+      setRole(user?.role || 'Técnico')
+      setPreview(user?.avatarUrl || '')
     }
   }, [user, open])
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target?.files
-    if (!files || files.length === 0) return
-    const file = files[0]
+    const file = e.target?.files?.[0]
     if (file) {
-      setAvatarFile(file)
       const reader = new FileReader()
       reader.onloadend = () => setPreview(reader.result as string)
       reader.readAsDataURL(file)
     }
-  }
-
-  const buildPayload = (skipPassword = false) => {
-    const payload: any = { name, email, role }
-
-    if (!skipPassword && password && password.trim() !== '') {
-      payload.password = password
-      payload.passwordConfirm = password
-    }
-
-    if (avatarFile) {
-      const formData = new FormData()
-      Object.entries(payload).forEach(([key, val]) => {
-        if (val !== undefined && val !== null) {
-          formData.append(key, val as any)
-        }
-      })
-      formData.append('avatar_url', avatarFile)
-      return formData
-    }
-
-    return payload
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,51 +78,37 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     try {
       formSchema.parse({ name, email, password: password || undefined, role })
     } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        const msg = err.errors?.[0]?.message || 'Revise los datos ingresados'
-        return toast({
-          title: 'Error de validación',
-          description: msg,
-          variant: 'destructive',
-        })
-      }
       return toast({
         title: 'Error de validación',
-        description: 'Error inesperado al verificar el formulario.',
+        description: err.errors?.[0]?.message || 'Revise los datos',
         variant: 'destructive',
       })
     }
 
     setIsLoading(true)
-    const initialPayload = buildPayload(false)
-
     try {
+      const payload = { name, email, role, avatar_url: preview || null }
+
       if (user) {
-        await updateUser(user.id, initialPayload)
+        await updateCollaborator(user.id, payload)
         toast({
           title: 'Colaborador actualizado',
           description: 'Los cambios se guardaron correctamente.',
         })
       } else {
-        await addUser(initialPayload)
+        await createCollaborator(payload, password)
         toast({
           title: 'Colaborador creado',
           description: 'El nuevo miembro fue añadido al sistema.',
         })
       }
+
+      onSuccess()
       onOpenChange(false)
     } catch (err: any) {
-      let errorMessage = 'No se pudo guardar la información del colaborador.'
-      if (err && typeof err === 'object') {
-        errorMessage = err.message || errorMessage
-        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(errorMessage)
-            errorMessage = parsed.message || errorMessage
-          } catch {
-            // ignore JSON parse errors
-          }
-        }
+      let errorMessage = err.message || 'No se pudo guardar la información del colaborador.'
+      if (errorMessage.includes('duplicate key') || errorMessage.includes('already registered')) {
+        errorMessage = 'El correo electrónico ya está registrado en el sistema.'
       }
 
       toast({
@@ -172,6 +121,8 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
     }
   }
 
+  const isFormValid = name.trim() !== '' && email.trim() !== '' && role.trim() !== ''
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -183,7 +134,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
               : 'Registra un nuevo miembro del equipo.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="flex flex-col items-center gap-2 mb-2">
             <div className="relative w-24 h-24 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden hover:bg-slate-50 transition-colors bg-slate-100">
               {preview ? (
@@ -228,6 +179,7 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
               placeholder={user ? 'Dejar en blanco para mantener la actual' : 'Mínimo 6 caracteres'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required={!user}
             />
           </div>
           <div className="space-y-2">
@@ -253,7 +205,11 @@ export function UserFormModal({ user, open, onOpenChange }: Props) {
             >
               Cancelar
             </Button>
-            <Button type="submit" className="bg-slate-800 hover:bg-slate-700" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="bg-slate-800 hover:bg-slate-700"
+              disabled={isLoading || !isFormValid}
+            >
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {user ? 'Guardar Cambios' : 'Crear Usuario'}
             </Button>
