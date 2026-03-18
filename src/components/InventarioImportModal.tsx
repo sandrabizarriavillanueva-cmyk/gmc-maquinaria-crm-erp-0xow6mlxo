@@ -13,17 +13,18 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from '@/hooks/use-toast'
 import { parseCSVRaw } from '@/lib/csv'
 import { Upload, Download, FileUp, Loader2, AlertCircle } from 'lucide-react'
-import { useStore } from '@/context/MainContext'
 
-export function InventarioImportModal() {
+interface InventarioImportModalProps {
+  onSuccess?: () => void
+}
+
+export function InventarioImportModal({ onSuccess }: InventarioImportModalProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [importSuccess, setImportSuccess] = useState(0)
-
-  const store = useStore() as any
 
   const handleOpenChange = (val: boolean) => {
     setOpen(val)
@@ -54,7 +55,7 @@ export function InventarioImportModal() {
       'Equipo',
       '1.000 litros',
       '2980000',
-      '0',
+      '2000000',
       '1',
       'Disponible',
     ]
@@ -64,37 +65,6 @@ export function InventarioImportModal() {
     link.href = URL.createObjectURL(blob)
     link.download = 'plantilla_inventario.csv'
     link.click()
-  }
-
-  const refreshData = async () => {
-    if (typeof store.fetchProducts === 'function') {
-      await store.fetchProducts()
-    } else if (typeof store.fetchData === 'function') {
-      await store.fetchData()
-    } else if (typeof store.setProducts === 'function') {
-      const { data } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (data) {
-        const mapped = data.map((d) => ({
-          id: d.id,
-          sku: d.code,
-          name: d.name,
-          brand: d.brand || '',
-          category: d.category || '',
-          status: d.status || 'Disponible',
-          stock: d.stock || 0,
-          minStock: d.min_stock || 0,
-          price: d.price || 0,
-          cost: d.cost || 0,
-          specs: d.specs || '',
-          imageUrl: d.image_url || undefined,
-          clientId: d.client_id || undefined,
-        }))
-        store.setProducts(mapped)
-      }
-    }
   }
 
   const handleImport = async () => {
@@ -211,36 +181,14 @@ export function InventarioImportModal() {
             const { error } = await supabase.from('products').upsert(dbRows, { onConflict: 'code' })
 
             if (error) {
-              let msg = error.message
-              if (
-                msg.includes('<') ||
-                msg.includes('Unexpected token') ||
-                msg.includes('DOCTYPE') ||
-                msg.includes('JSON')
-              ) {
-                throw new Error(
-                  'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.',
-                )
-              }
-
+              // Detailed retry for reporting
               for (const row of dbRows) {
                 const { error: rowError } = await supabase
                   .from('products')
                   .upsert(row, { onConflict: 'code' })
                 if (rowError) {
-                  let rMsg = rowError.message
-                  if (
-                    rMsg.includes('<') ||
-                    rMsg.includes('Unexpected token') ||
-                    rMsg.includes('DOCTYPE') ||
-                    rMsg.includes('JSON')
-                  ) {
-                    throw new Error(
-                      'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.',
-                    )
-                  }
                   errors++
-                  errorDetails.push(`SKU ${row.code}: ${rMsg}`)
+                  errorDetails.push(`SKU ${row.code}: ${rowError.message}`)
                 } else {
                   imported++
                 }
@@ -249,24 +197,14 @@ export function InventarioImportModal() {
               imported += dbRows.length
             }
           } catch (innerErr: any) {
-            let msg = innerErr.message || String(innerErr)
-            if (
-              msg.includes('<') ||
-              msg.includes('Unexpected token') ||
-              msg.includes('DOCTYPE') ||
-              msg.includes('JSON')
-            ) {
-              msg =
-                'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.'
-            }
-            throw new Error(msg)
+            throw new Error(innerErr.message || String(innerErr))
           }
         }
 
         setProgress({ current: batchIdx + 1, total: totalBatches })
       }
 
-      await refreshData()
+      onSuccess?.()
 
       if (errors > 0) {
         setImportErrors(errorDetails)
@@ -284,16 +222,7 @@ export function InventarioImportModal() {
         handleOpenChange(false)
       }
     } catch (err: any) {
-      let msg = err.message || String(err)
-      if (
-        msg.includes('Unexpected token') ||
-        msg.includes('<!DOCTYPE') ||
-        msg.includes('<!--') ||
-        msg.includes('JSON')
-      ) {
-        msg = 'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.'
-      }
-      setImportErrors([`No se pudo procesar el archivo CSV: ${msg}`])
+      setImportErrors([`No se pudo procesar el archivo CSV: ${err.message || String(err)}`])
     } finally {
       setIsLoading(false)
     }
@@ -302,8 +231,8 @@ export function InventarioImportModal() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="h-11 gap-2 border-slate-300">
-          <Upload className="w-4 h-4" /> Importar Inventario
+        <Button variant="outline" className="h-11 gap-2 border-slate-300 bg-white">
+          <Upload className="w-4 h-4" /> Importar CSV
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

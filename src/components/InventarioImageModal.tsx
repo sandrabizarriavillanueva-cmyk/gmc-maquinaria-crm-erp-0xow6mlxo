@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -10,14 +11,18 @@ import { useStore } from '@/context/MainContext'
 import { Image as ImageIcon, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
+interface InventarioImageModalProps {
+  productId: string
+  imageUrl?: string
+  onSuccess?: () => void
+}
+
 export function InventarioImageModal({
   productId,
   imageUrl,
-}: {
-  productId: string
-  imageUrl?: string
-}) {
-  const { updateProductImage, currentRole } = useStore()
+  onSuccess,
+}: InventarioImageModalProps) {
+  const { currentRole } = useStore()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -25,12 +30,34 @@ export function InventarioImageModal({
     const files = e.target?.files
     if (!files || files.length === 0) return
     const file = files[0]
+
     if (file) {
       setIsLoading(true)
       try {
-        await updateProductImage(productId, file)
-        setOpen(false)
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${productId}-${Date.now()}.${fileExt}`
+
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, file, { upsert: true })
+
+        if (uploadError) throw uploadError
+
+        // Get Public URL
+        const { data: publicUrlData } = supabase.storage.from('products').getPublicUrl(fileName)
+
+        // Update database record
+        const { error: dbError } = await supabase
+          .from('products')
+          .update({ image_url: publicUrlData.publicUrl })
+          .eq('id', productId)
+
+        if (dbError) throw dbError
+
         toast({ title: 'Imagen guardada correctamente' })
+        setOpen(false)
+        onSuccess?.()
       } catch (err: any) {
         toast({
           title: 'Error al subir imagen',

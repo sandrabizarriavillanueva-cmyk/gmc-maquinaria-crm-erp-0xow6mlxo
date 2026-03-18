@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -16,12 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useStore } from '@/context/MainContext'
 import { toast } from '@/hooks/use-toast'
 import { Plus, Loader2 } from 'lucide-react'
 
-export function InventarioAddModal() {
-  const { addProduct } = useStore()
+interface InventarioAddModalProps {
+  onSuccess?: () => void
+}
+
+export function InventarioAddModal({ onSuccess }: InventarioAddModalProps) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -29,7 +32,9 @@ export function InventarioAddModal() {
   const [name, setName] = useState('')
   const [brand, setBrand] = useState('')
   const [category, setCategory] = useState('Compresor')
+  const [specs, setSpecs] = useState('')
   const [price, setPrice] = useState(0)
+  const [cost, setCost] = useState(0)
   const [stock, setStock] = useState(1)
   const [minStock, setMinStock] = useState(1)
 
@@ -44,22 +49,39 @@ export function InventarioAddModal() {
 
     setIsLoading(true)
     try {
-      await addProduct({
-        sku,
+      const { error } = await supabase.from('products').insert({
+        code: sku,
         name,
         brand,
         category,
+        specs,
         price,
+        cost,
         stock,
-        minStock,
+        min_stock: minStock,
         status: 'Disponible',
       })
+
+      if (error) throw error
+
       setOpen(false)
       toast({ title: 'Equipo registrado', description: `${sku} ha sido añadido al inventario.` })
-    } catch (e) {
+
+      // Reset form
+      setSku('')
+      setName('')
+      setBrand('')
+      setSpecs('')
+      setPrice(0)
+      setCost(0)
+      setStock(1)
+      setMinStock(1)
+
+      onSuccess?.()
+    } catch (e: any) {
       toast({
         title: 'Error',
-        description: 'No se pudo guardar el equipo en la base de datos.',
+        description: e.message || 'No se pudo guardar el equipo en la base de datos.',
         variant: 'destructive',
       })
     } finally {
@@ -74,13 +96,13 @@ export function InventarioAddModal() {
           <Plus className="w-4 h-4" /> Registrar Equipo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-xl">Registrar Nuevo Equipo</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
           <div className="grid gap-2">
-            <Label>SKU *</Label>
+            <Label>SKU / Código *</Label>
             <Input
               value={sku}
               onChange={(e) => setSku(e.target.value)}
@@ -99,6 +121,7 @@ export function InventarioAddModal() {
                 <SelectItem value="Secador">Secador de Aire</SelectItem>
                 <SelectItem value="Chiller">Chiller</SelectItem>
                 <SelectItem value="Filtro">Filtro / Repuesto</SelectItem>
+                <SelectItem value="Herramienta">Herramienta</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -121,7 +144,26 @@ export function InventarioAddModal() {
             />
           </div>
           <div className="grid gap-2">
-            <Label>Precio Unitario Neto (CLP) *</Label>
+            <Label>Especificaciones</Label>
+            <Input
+              value={specs}
+              onChange={(e) => setSpecs(e.target.value)}
+              placeholder="Ej. 10 bar, 400V"
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Costo Neto (CLP)</Label>
+            <Input
+              type="number"
+              value={cost || ''}
+              onChange={(e) => setCost(Number(e.target.value))}
+              placeholder="0"
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Precio Venta/Arriendo (CLP) *</Label>
             <Input
               type="number"
               value={price || ''}
@@ -152,9 +194,10 @@ export function InventarioAddModal() {
         <Button
           onClick={submit}
           disabled={isLoading}
-          className="w-full h-11 bg-slate-800 hover:bg-slate-700"
+          className="w-full h-11 bg-slate-800 hover:bg-slate-700 gap-2"
         >
-          {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Guardar en Inventario'}
+          {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+          Guardar en Inventario
         </Button>
       </DialogContent>
     </Dialog>
