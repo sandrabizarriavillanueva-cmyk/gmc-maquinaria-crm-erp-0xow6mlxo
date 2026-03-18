@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { pb } from '@/lib/api'
+import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -53,7 +53,7 @@ export function InventarioImportModal() {
       '2980000',
       '0',
       '1',
-      'disponible',
+      'Disponible',
     ]
     const csvContent = `${headers.join(';')}\n${row.join(';')}`
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -101,7 +101,7 @@ export function InventarioImportModal() {
 
       const itemsToImport = rawData.slice(startIndex)
 
-      const BATCH_SIZE = 20
+      const BATCH_SIZE = 50
       const totalBatches = Math.ceil(itemsToImport.length / BATCH_SIZE)
       setProgress({ current: 0, total: totalBatches })
 
@@ -118,14 +118,15 @@ export function InventarioImportModal() {
 
             const getVal = (names: string[], fallbackIdx: number) => {
               if (hasHeaders) {
-                for (let j = 0; j < headers.length; j++) {
-                  if (names.some((n) => headers[j].includes(n))) return row[j]
-                }
+                const idx = headers.findIndex((h) => names.some((n) => h.includes(n)))
+                if (idx !== -1) return row[idx]
               }
               return row[fallbackIdx]
             }
 
             const sku = getVal(['sku', 'codigo'], 0)
+            if (!sku || String(sku).trim() === '') return null
+
             const brand = getVal(['marca', 'brand'], 1) || 'Genérica'
             const name = getVal(['descrip', 'nombre', 'producto'], 2) || 'Equipo Genérico'
             const category = getVal(['categoria', 'tipo'], 3) || 'Repuesto'
@@ -134,8 +135,6 @@ export function InventarioImportModal() {
             const rawCost = getVal(['costo', 'cost'], 6) || '0'
             const rawStock = getVal(['stock', 'cantidad'], 7) || '1'
             const rawStatus = getVal(['estado', 'status'], 8) || 'Disponible'
-
-            if (!sku) return null
 
             const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
             const cost = parseInt(String(rawCost).replace(/[^0-9]/g, ''), 10) || 0
@@ -165,19 +164,23 @@ export function InventarioImportModal() {
           .filter((r) => r !== null)
 
         if (dbRows.length > 0) {
-          for (const row of dbRows) {
-            try {
-              const existing = await pb.get('products', `code='${row!.code}'`)
-              if (existing && existing.length > 0) {
-                await pb.update('products', existing[0].id, row)
+          const { error } = await supabase.from('products').upsert(dbRows, { onConflict: 'code' })
+
+          if (error) {
+            // Fallback to row-by-row to identify specific problematic rows
+            for (const row of dbRows) {
+              const { error: rowError } = await supabase
+                .from('products')
+                .upsert(row, { onConflict: 'code' })
+              if (rowError) {
+                errors++
+                errorDetails.push(`SKU ${row.code}: ${rowError.message}`)
               } else {
-                await pb.create('products', row)
+                imported++
               }
-              imported++
-            } catch (err: any) {
-              errors++
-              errorDetails.push(`Error SKU ${row!.code}: ${err.message}`)
             }
+          } else {
+            imported += dbRows.length
           }
         }
 
@@ -187,6 +190,11 @@ export function InventarioImportModal() {
       if (errors > 0) {
         setImportErrors(errorDetails)
         setImportSuccess(imported)
+        toast({
+          title: 'Importación con advertencias',
+          description: `Se procesaron ${imported} equipos, pero hubo ${errors} errores.`,
+          variant: 'destructive',
+        })
       } else {
         toast({
           title: 'Importación Completada',
@@ -217,7 +225,7 @@ export function InventarioImportModal() {
           <div className="space-y-2">
             <p className="text-sm text-slate-500">
               Sube tu archivo delimitado por punto y coma (;) para actualizar la base de datos. Si
-              un SKU ya existe, se actualizarán sus datos.
+              un SKU ya existe, se actualizarán sus datos automáticamente (Upsert).
             </p>
             <Button variant="secondary" onClick={downloadTemplate} className="w-full gap-2">
               <Download className="w-4 h-4" /> Descargar Plantilla
@@ -293,7 +301,7 @@ export function InventarioImportModal() {
             ) : (
               <FileUp className="w-4 h-4" />
             )}
-            {isLoading ? 'Sincronizando Base de Datos...' : 'Procesar Importación'}
+            {isLoading ? 'Sincronizando con Supabase...' : 'Procesar Importación'}
           </Button>
         )}
       </DialogContent>
