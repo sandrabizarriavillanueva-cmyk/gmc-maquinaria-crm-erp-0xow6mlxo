@@ -24,7 +24,7 @@ export default function Layout() {
             <SidebarTrigger className="text-slate-600 hover:text-orange-500 transition-colors" />
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
             <h2 className="text-lg font-bold text-slate-800 ml-2 hidden sm:block tracking-tight">
-              Portal Operativo
+              Gestion GMC
             </h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -44,7 +44,7 @@ export default function Layout() {
         <main className="flex-1 overflow-auto relative">
           <div
             key={location.pathname}
-            className="h-full p-4 md:p-6 lg:p-8 animate-fade-in duration-200 ease-out"
+            className="h-full p-4 md:p-6 lg:p-8 animate-fade-in duration-200 ease-out bg-[#a7b6bc]"
           >
             <Outlet />
           </div>
