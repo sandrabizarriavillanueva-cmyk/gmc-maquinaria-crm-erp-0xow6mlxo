@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from '@/hooks/use-toast'
 import { parseCSVRaw } from '@/lib/csv'
 import { Upload, Download, FileUp, Loader2, AlertCircle } from 'lucide-react'
+import { useStore } from '@/context/MainContext'
 
 export function InventarioImportModal() {
   const [open, setOpen] = useState(false)
@@ -21,6 +22,8 @@ export function InventarioImportModal() {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [importSuccess, setImportSuccess] = useState(0)
+
+  const store = useStore() as any
 
   const handleOpenChange = (val: boolean) => {
     setOpen(val)
@@ -63,6 +66,37 @@ export function InventarioImportModal() {
     link.click()
   }
 
+  const refreshData = async () => {
+    if (typeof store.fetchProducts === 'function') {
+      await store.fetchProducts()
+    } else if (typeof store.fetchData === 'function') {
+      await store.fetchData()
+    } else if (typeof store.setProducts === 'function') {
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (data) {
+        const mapped = data.map((d) => ({
+          id: d.id,
+          sku: d.code,
+          name: d.name,
+          brand: d.brand || '',
+          category: d.category || '',
+          status: d.status || 'Disponible',
+          stock: d.stock || 0,
+          minStock: d.min_stock || 0,
+          price: d.price || 0,
+          cost: d.cost || 0,
+          specs: d.specs || '',
+          imageUrl: d.image_url || undefined,
+          clientId: d.client_id || undefined,
+        }))
+        store.setProducts(mapped)
+      }
+    }
+  }
+
   const handleImport = async () => {
     if (!file) return
 
@@ -92,7 +126,8 @@ export function InventarioImportModal() {
         firstRowStr.includes('sku') ||
         firstRowStr.includes('marca') ||
         firstRowStr.includes('descripc') ||
-        firstRowStr.includes('precio')
+        firstRowStr.includes('precio') ||
+        firstRowStr.includes('code')
 
       const startIndex = hasHeaders ? 1 : 0
       const headers = hasHeaders
@@ -120,25 +155,33 @@ export function InventarioImportModal() {
               if (hasHeaders) {
                 const idx = headers.findIndex((h) => names.some((n) => h.includes(n)))
                 if (idx !== -1) return row[idx]
+                return undefined
               }
               return row[fallbackIdx]
             }
 
-            const sku = getVal(['sku', 'codigo'], 0)
+            const sku = getVal(['sku', 'codigo', 'code'], 0)
             if (!sku || String(sku).trim() === '') return null
 
             const brand = getVal(['marca', 'brand'], 1) || 'Genérica'
-            const name = getVal(['descrip', 'nombre', 'producto'], 2) || 'Equipo Genérico'
-            const category = getVal(['categoria', 'tipo'], 3) || 'Repuesto'
+            const name = getVal(['descrip', 'nombre', 'producto', 'name'], 2) || 'Equipo Genérico'
+            const category = getVal(['categoria', 'tipo', 'category'], 3) || 'Repuesto'
             const specs = getVal(['especificacion', 'detalle', 'specs'], 4) || ''
-            const rawPrice = getVal(['precio', 'price', 'valor'], 5) || '0'
-            const rawCost = getVal(['costo', 'cost'], 6) || '0'
-            const rawStock = getVal(['stock', 'cantidad'], 7) || '1'
+
+            const rawPrice = getVal(['precio', 'price', 'valor'], 5)
+            const rawCost = getVal(['costo', 'cost'], 6)
+            const rawStock = getVal(['stock', 'cantidad'], 7)
             const rawStatus = getVal(['estado', 'status'], 8) || 'Disponible'
 
-            const price = parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || 0
-            const cost = parseInt(String(rawCost).replace(/[^0-9]/g, ''), 10) || 0
-            const stock = parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) || 1
+            const parseNum = (val: any) => {
+              if (val === undefined || val === null || val === '') return undefined
+              const parsed = parseInt(String(val).replace(/[^0-9-]/g, ''), 10)
+              return isNaN(parsed) ? undefined : parsed
+            }
+
+            const price = parseNum(rawPrice) ?? 0
+            const cost = parseNum(rawCost) ?? 0
+            const stock = parseNum(rawStock) ?? 0
 
             let status = 'Disponible'
             const lowerStatus = String(rawStatus).toLowerCase()
@@ -164,28 +207,66 @@ export function InventarioImportModal() {
           .filter((r) => r !== null)
 
         if (dbRows.length > 0) {
-          const { error } = await supabase.from('products').upsert(dbRows, { onConflict: 'code' })
+          try {
+            const { error } = await supabase.from('products').upsert(dbRows, { onConflict: 'code' })
 
-          if (error) {
-            // Fallback to row-by-row to identify specific problematic rows
-            for (const row of dbRows) {
-              const { error: rowError } = await supabase
-                .from('products')
-                .upsert(row, { onConflict: 'code' })
-              if (rowError) {
-                errors++
-                errorDetails.push(`SKU ${row.code}: ${rowError.message}`)
-              } else {
-                imported++
+            if (error) {
+              let msg = error.message
+              if (
+                msg.includes('<') ||
+                msg.includes('Unexpected token') ||
+                msg.includes('DOCTYPE') ||
+                msg.includes('JSON')
+              ) {
+                throw new Error(
+                  'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.',
+                )
               }
+
+              for (const row of dbRows) {
+                const { error: rowError } = await supabase
+                  .from('products')
+                  .upsert(row, { onConflict: 'code' })
+                if (rowError) {
+                  let rMsg = rowError.message
+                  if (
+                    rMsg.includes('<') ||
+                    rMsg.includes('Unexpected token') ||
+                    rMsg.includes('DOCTYPE') ||
+                    rMsg.includes('JSON')
+                  ) {
+                    throw new Error(
+                      'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.',
+                    )
+                  }
+                  errors++
+                  errorDetails.push(`SKU ${row.code}: ${rMsg}`)
+                } else {
+                  imported++
+                }
+              }
+            } else {
+              imported += dbRows.length
             }
-          } else {
-            imported += dbRows.length
+          } catch (innerErr: any) {
+            let msg = innerErr.message || String(innerErr)
+            if (
+              msg.includes('<') ||
+              msg.includes('Unexpected token') ||
+              msg.includes('DOCTYPE') ||
+              msg.includes('JSON')
+            ) {
+              msg =
+                'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.'
+            }
+            throw new Error(msg)
           }
         }
 
         setProgress({ current: batchIdx + 1, total: totalBatches })
       }
+
+      await refreshData()
 
       if (errors > 0) {
         setImportErrors(errorDetails)
@@ -201,10 +282,18 @@ export function InventarioImportModal() {
           description: `Se han procesado ${imported} equipos correctamente sin errores.`,
         })
         handleOpenChange(false)
-        setTimeout(() => window.location.reload(), 1500)
       }
     } catch (err: any) {
-      setImportErrors([`No se pudo procesar el archivo CSV: ${err.message}`])
+      let msg = err.message || String(err)
+      if (
+        msg.includes('Unexpected token') ||
+        msg.includes('<!DOCTYPE') ||
+        msg.includes('<!--') ||
+        msg.includes('JSON')
+      ) {
+        msg = 'El servidor devolvió una respuesta no válida (HTML). Verifica la conexión o la API.'
+      }
+      setImportErrors([`No se pudo procesar el archivo CSV: ${msg}`])
     } finally {
       setIsLoading(false)
     }
@@ -224,8 +313,8 @@ export function InventarioImportModal() {
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
             <p className="text-sm text-slate-500">
-              Sube tu archivo delimitado por punto y coma (;) para actualizar la base de datos. Si
-              un SKU ya existe, se actualizarán sus datos automáticamente (Upsert).
+              Sube tu archivo delimitado por comas o punto y coma para actualizar la base de datos.
+              Si un SKU ya existe, se actualizarán sus datos automáticamente.
             </p>
             <Button variant="secondary" onClick={downloadTemplate} className="w-full gap-2">
               <Download className="w-4 h-4" /> Descargar Plantilla
@@ -280,10 +369,10 @@ export function InventarioImportModal() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.location.reload()}
+                    onClick={() => handleOpenChange(false)}
                     className="mt-2 w-full border-red-300 text-red-700 hover:bg-red-100"
                   >
-                    Continuar y recargar
+                    Cerrar
                   </Button>
                 </div>
               )}
