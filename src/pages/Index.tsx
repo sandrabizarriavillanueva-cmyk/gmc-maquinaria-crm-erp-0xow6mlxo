@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useStore } from '@/context/MainContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCLP, getEquipmentBadgeClass } from '@/lib/format'
@@ -14,9 +15,44 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { RestrictedAccess } from '@/components/RestrictedAccess'
+import { supabase } from '@/lib/supabase/client'
 
 export default function Index() {
   const { products, invoices, updateProductStock, currentRole, permissions } = useStore()
+  const [zeroStockProducts, setZeroStockProducts] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!permissions[currentRole]?.dashboard) return
+
+    const fetchZeroStock = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, code, name')
+          .eq('stock', 0)
+          .order('name', { ascending: true })
+
+        if (!error && data) {
+          setZeroStockProducts(data)
+        }
+      } catch (err) {
+        console.error('Error fetching zero stock products:', err)
+      }
+    }
+
+    fetchZeroStock()
+
+    const channel = supabase
+      .channel('zero_stock_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () =>
+        fetchZeroStock(),
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentRole, permissions])
 
   if (!permissions[currentRole].dashboard) return <RestrictedAccess />
 
@@ -28,7 +64,7 @@ export default function Index() {
   const canSell = permissions[currentRole].ventas
 
   return (
-    <div className="space-y-8 pb-20 md:pb-0">
+    <div className="space-y-8 pb-20 md:pb-0 animate-fade-in-up">
       <div className="flex justify-between items-end md:items-center">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
@@ -49,6 +85,48 @@ export default function Index() {
           </Button>
         )}
       </div>
+
+      {zeroStockProducts.length > 0 && (
+        <Card className="border-red-500 shadow-sm bg-red-50/40">
+          <CardHeader className="pb-3 border-b border-red-100">
+            <CardTitle className="text-red-700 flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5" />
+              Falta de Equipamento
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-3">
+            {zeroStockProducts.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-col md:flex-row justify-between md:items-center bg-white p-4 rounded-lg border border-red-100 shadow-sm gap-4 transition-all hover:shadow-md"
+              >
+                <div>
+                  <p className="font-bold text-slate-800 text-base">{p.name}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      SKU: {p.code}
+                    </span>
+                    <Badge
+                      variant="destructive"
+                      className="text-[10px] px-2 py-0 uppercase tracking-wider bg-red-500 hover:bg-red-600"
+                    >
+                      Falta de equipamento
+                    </Badge>
+                  </div>
+                </div>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="default"
+                  className="bg-red-600 hover:bg-red-700 text-white w-full md:w-auto shadow-sm"
+                >
+                  <Link to="/inventario">Reposición de stock</Link>
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {canSell && (
