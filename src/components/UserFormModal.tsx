@@ -107,7 +107,9 @@ export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
       onOpenChange(false)
     } catch (err: any) {
       let errorMessage = err.message || 'No se pudo guardar la información del colaborador.'
-      if (errorMessage.includes('duplicate key') || errorMessage.includes('already registered')) {
+      const lowerMessage = errorMessage.toLowerCase()
+
+      if (lowerMessage.includes('duplicate key') || lowerMessage.includes('already registered')) {
         errorMessage = 'El correo electrónico ya está registrado en el sistema.'
       }
 
@@ -148,6 +150,7 @@ export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
                 onChange={handleImageUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 title="Subir foto"
+                disabled={isLoading}
               />
             </div>
             <span className="text-xs font-medium text-slate-500">Subir Foto de Perfil</span>
@@ -160,6 +163,7 @@ export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
               placeholder="Ej. Juan Pérez"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -170,6 +174,7 @@ export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
               placeholder="correo@gmc.cl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -180,11 +185,12 @@ export function UserFormModal({ user, open, onOpenChange, onSuccess }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={!user}
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
             <Label>Rol en el Sistema</Label>
-            <Select value={role} onValueChange={(v: UserRole) => setRole(v)}>
+            <Select disabled={isLoading} value={role} onValueChange={(v: UserRole) => setRole(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccione un rol" />
               </SelectTrigger>

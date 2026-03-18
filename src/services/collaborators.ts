@@ -31,9 +31,16 @@ export const createCollaborator = async (
   if (authError) throw authError
   if (!authData.user) throw new Error('No se pudo crear el usuario en el sistema de autenticación')
 
+  // Identify if a user already exists but we got a fake success due to email enumerability protection
+  if (authData.user.identities && authData.user.identities.length === 0) {
+    throw new Error('User already registered')
+  }
+
+  // The database has a trigger that creates the collaborator row automatically on signup.
+  // We use upsert to update the row with the correct data (name, role, avatar_url) avoiding duplicate key error.
   const { data, error } = await supabase
     .from('collaborators')
-    .insert({
+    .upsert({
       id: authData.user.id,
       name: collaborator.name,
       email: collaborator.email,
