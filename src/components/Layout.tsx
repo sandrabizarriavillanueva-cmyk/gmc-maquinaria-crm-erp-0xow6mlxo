@@ -1,27 +1,15 @@
-import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from './AppSidebar'
 import { RoleSelector } from './RoleSelector'
 import { NotificationsDropdown } from './NotificationsDropdown'
 import { useAuth } from '@/hooks/use-auth'
-import { useStore } from '@/context/MainContext'
 import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function Layout() {
   const location = useLocation()
   const { session, signOut } = useAuth()
-  const { setCurrentRole, users } = useStore()
-
-  useEffect(() => {
-    if (session?.user?.email) {
-      const loggedInUser = users.find((u) => u.email === session.user.email)
-      if (loggedInUser && loggedInUser.role) {
-        setCurrentRole(loggedInUser.role)
-      }
-    }
-  }, [session, users, setCurrentRole])
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />

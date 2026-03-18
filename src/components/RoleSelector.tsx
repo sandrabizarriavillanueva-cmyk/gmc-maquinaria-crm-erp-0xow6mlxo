@@ -8,11 +8,33 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { UserCircle, Shield, Briefcase, Wrench } from 'lucide-react'
-import { UserRole } from '@/types'
+import { Shield, Briefcase, Wrench } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export function RoleSelector() {
-  const { currentRole, setCurrentRole, currentUser, userAvatar } = useStore()
+  const { currentRole, setCurrentRole, currentUser, userAvatar, isLoadingProfile } = useStore()
+
+  if (isLoadingProfile) {
+    return (
+      <Button variant="ghost" className="gap-2 px-2 sm:px-4 h-10 w-[140px] justify-start" disabled>
+        <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+        <div className="hidden sm:flex flex-col gap-1 items-start w-full">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-2 w-12" />
+        </div>
+      </Button>
+    )
+  }
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U'
+    const parts = name.trim().split(' ')
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+  }
 
   return (
     <DropdownMenu>
@@ -21,18 +43,22 @@ export function RoleSelector() {
           variant="ghost"
           className="gap-2 font-medium text-slate-600 hover:text-slate-900 px-2 sm:px-4 h-10"
         >
-          {userAvatar ? (
-            <img
-              src={userAvatar}
-              className="w-8 h-8 rounded-full object-cover border border-slate-200"
-              alt="User"
-            />
-          ) : (
-            <UserCircle className="w-6 h-6 text-slate-400" />
-          )}
+          <Avatar className="w-8 h-8 border border-slate-200">
+            <AvatarImage src={userAvatar || ''} alt={currentUser || 'User'} />
+            <AvatarFallback className="bg-slate-100 text-slate-600 text-xs font-semibold">
+              {getInitials(currentUser || 'User')}
+            </AvatarFallback>
+          </Avatar>
           <div className="hidden sm:flex flex-col items-start text-left">
-            <span className="text-sm leading-none">{currentUser}</span>
-            <span className="text-xs text-orange-600 leading-none mt-1">{currentRole}</span>
+            <span
+              className="text-sm leading-none max-w-[100px] truncate"
+              title={currentUser || 'User'}
+            >
+              {currentUser || 'User'}
+            </span>
+            <span className="text-xs text-orange-600 leading-none mt-1 capitalize">
+              {currentRole}
+            </span>
           </div>
         </Button>
       </DropdownMenuTrigger>

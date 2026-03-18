@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { pb } from '@/lib/api'
+import { supabase } from '@/lib/supabase/client'
 import {
   Product,
   Client,
@@ -15,7 +16,7 @@ import {
 const MOCK_USERS: User[] = [
   {
     id: '1',
-    name: 'Juan Admin',
+    name: 'Usuario Demo',
     email: 'admin@gmc.cl',
     role: 'Administrador',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
@@ -104,10 +105,11 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
 const isMockId = (id: string) => id.length < 10
 
 export default function useMainStore() {
-  const [currentUser, setCurrentUser] = useState('Juan Admin')
+  const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<UserRole>('Administrador')
   const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [permissions, setPermissions] = useState<RolePermissions>(DEFAULT_PERMISSIONS)
 
   const [users, setUsers] = useState<User[]>([])
@@ -115,6 +117,63 @@ export default function useMainStore() {
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchProfile = async () => {
+      setIsLoadingProfile(true)
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('collaborators')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+
+          if (isMounted) {
+            if (profile) {
+              setCurrentUser(profile.name || session.user.email || 'User')
+              let fetchedRole = profile.role
+              if (fetchedRole === 'admin') fetchedRole = 'Administrador'
+              if (fetchedRole === 'collaborator') fetchedRole = 'Vendedor'
+
+              const validRoles = ['Administrador', 'Vendedor', 'Técnico']
+              setCurrentRole(
+                validRoles.includes(fetchedRole) ? (fetchedRole as UserRole) : 'Vendedor',
+              )
+              setUserAvatar(profile.avatar_url || null)
+            } else {
+              setCurrentUser(session.user.email || 'User')
+            }
+          }
+        } else if (isMounted) {
+          setCurrentUser(null)
+          setUserAvatar(null)
+        }
+      } catch (error) {
+        console.error('Error fetching profile', error)
+      } finally {
+        if (isMounted) setIsLoadingProfile(false)
+      }
+    }
+
+    fetchProfile()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      fetchProfile()
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     const initData = async () => {
@@ -174,7 +233,7 @@ export default function useMainStore() {
       {
         id: Math.random().toString(),
         date: new Date().toISOString(),
-        user: currentUser,
+        user: currentUser || 'Sistema',
         role: currentRole,
         action,
         target,
@@ -339,6 +398,7 @@ export default function useMainStore() {
     setCompanyLogo,
     userAvatar,
     setUserAvatar,
+    isLoadingProfile,
     permissions,
     updateRolePermission,
     users,
