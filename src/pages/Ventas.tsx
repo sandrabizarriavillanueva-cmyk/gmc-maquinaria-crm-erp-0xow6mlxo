@@ -44,8 +44,6 @@ export default function Ventas() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [openProductDropdown, setOpenProductDropdown] = useState(false)
 
-  if (!permissions[currentRole].ventas) return <RestrictedAccess />
-
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
@@ -72,6 +70,8 @@ export default function Ventas() {
   useEffect(() => {
     setProductId('')
   }, [opType])
+
+  if (!permissions[currentRole]?.ventas) return <RestrictedAccess />
 
   const selProd = dbProducts.find((p) => p.id === productId)
   const net = (selProd?.price || 0) * qty
